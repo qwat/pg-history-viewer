@@ -4,26 +4,40 @@ import os
 from . import name as plugin_name
 
 from PyQt4.QtCore import QSettings
-from PyQt4.QtGui import QAction, QIcon
+from PyQt4.QtGui import QAction, QIcon, QMessageBox
 
 from qgis.core import QgsMapLayerRegistry, QgsProject
 
 import psycopg2
 
 import event_dialog
-import table_map_dialog
+import config_dialog
 
 PLUGIN_PATH=os.path.dirname(__file__)
 
 def database_connection_string():
-    return QSettings("qwat_history_viewer").value("connection", "service=qwat")
+    db_connection, ok = QgsProject.instance().readEntry("HistoryViewer", "db_connection", "")
+    return db_connection
+
+def set_database_connection_string(db_connection):
+    QgsProject.instance().writeEntry("HistoryViewer", "db_connection", db_connection)
+
+def project_audit_table():
+    audit_table, ok = QgsProject.instance().readEntry("HistoryViewer", "audit_table", "")
+    return audit_table
+
+def set_project_audit_table(audit_table):
+    QgsProject.instance().writeEntry("HistoryViewer", "audit_table", audit_table)
 
 def project_table_map():
     # get table_map
-    table_map_strs, ok = QgsProject.instance().readListEntry("QWAT", "table_map", [])
+    table_map_strs, ok = QgsProject.instance().readListEntry("HistoryViewer", "table_map", [])
     # list of "layer_id=table_name" strings
     table_map = dict([t.split('=') for t in table_map_strs])
     return table_map
+
+def set_project_table_map(table_map):
+    QgsProject.instance().writeEntry("HistoryViewer", "table_map", [k+"="+v for k,v in table_map.items()])
 
 
 class Plugin():
@@ -37,7 +51,7 @@ class Plugin():
         self.iface.addToolBarIcon(self.listEventsAction)
         self.iface.addPluginToMenu(plugin_name(), self.listEventsAction)
 
-        self.configureAction = QAction(u"Configure layer - table mapping", self.iface.mainWindow())
+        self.configureAction = QAction(u"Configuration", self.iface.mainWindow())
         self.configureAction.triggered.connect(self.onConfigure)
         self.iface.addPluginToMenu(plugin_name(), self.configureAction)
 
@@ -48,7 +62,13 @@ class Plugin():
         self.iface.removePluginMenu(plugin_name(),self.configureAction)
 
     def onListEvents(self, layer_id = None, feature_id = None):
-        conn = psycopg2.connect(database_connection_string())
+        db_connection = database_connection_string()
+        if not db_connection:
+            QMessageBox.critical(None, "Configuration problem", "No database configuration has been found, please configure the project")
+            self.onConfigure()
+            return
+
+        conn = psycopg2.connect(db_connection)
 
         table_map = project_table_map()
         
@@ -63,10 +83,16 @@ class Plugin():
 
     def onConfigure(self):
         table_map = project_table_map()
-        self.table_map_dlg = table_map_dialog.TableMapDialog(self.iface.mainWindow(), table_map)
-        r = self.table_map_dlg.exec_()
+        db_connection = database_connection_string()
+        audit_table = project_audit_table()
+        self.config_dlg = config_dialog.ConfigDialog(self.iface.mainWindow(), db_connection, audit_table, table_map)
+        r = self.config_dlg.exec_()
         if r == 1:
-            table_map = self.table_map_dlg.table_map()
+            table_map = self.config_dlg.table_map()
+            db_connection = self.config_dlg.db_connection()
+            audit_table = self.config_dlg.audit_table()
             # save to the project
-            QgsProject.instance().writeEntry("QWAT", "table_map", [k+"="+v for k,v in table_map.items()])
+            set_database_connection_string(db_connection)
+            set_project_table_map(table_map)
+            set_project_audit_table(audit_table)
 

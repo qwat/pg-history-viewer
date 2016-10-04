@@ -2,11 +2,11 @@
 
 PLUGINNAME = qwat_history_viewer
 
-PY_FILES = main.py __init__.py event_dialog.py table_map_dialog.py
+PY_FILES = main.py __init__.py event_dialog.py config_dialog.py
 
 EXTRAS = metadata.txt icons/*.png icons/*.svg
 
-UI_FILES = event_dialog.ui table_map.ui
+UI_FILES = event_dialog.ui config.ui
 
 VERSION=$(shell grep "version=" metadata.txt | cut -d'=' -f 2)
 
