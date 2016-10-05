@@ -76,7 +76,6 @@ class Plugin():
                                             conn,
                                             self.iface.mapCanvas(),
                                             table_map = table_map,
-                                            geometry_columns = ["geometry", "geometry_alt1", "geometry_alt2"],
                                             selected_layer_id = layer_id,
                                             selected_feature_id = feature_id)
         self.dlg.show()

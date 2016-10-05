@@ -14,13 +14,15 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(
 import re
 
 # Convert a string representing a hstore from psycopg2 to a Python dict
+kv_re = re.compile('"(\w+)"=>(NULL|""|".*?[^\\\\]")(?:, |$)')
 def parse_hstore(hstore_str):
     if hstore_str is None:
         return {}
-    kv_re = re.compile('"(\w+)"=>(NULL|""|".*?[^\\\\]")(?:, |$)')
     return dict([(m.group(1), None if m.group(2) == 'NULL' else m.group(2).replace('\\"', '"')[1:-1]) for m in re.finditer(kv_re, hstore_str)])
 
 def ewkb_to_geom(ewkb_str):
+    if ewkb_str is None:
+        return QgsGeometry()
     # get type + flags
     header = ewkb_str[2:10]
     has_srid = int(header[6], 16) & 2 > 0
@@ -76,13 +78,12 @@ class GeometryDisplayer:
         self.canvas.setExtent(bbox)        
 
 class EventDialog(QtGui.QDialog, FORM_CLASS):
-    def __init__(self, parent, conn, map_canvas, table_map = {}, geometry_columns = ["geometry"], selected_layer_id = None, selected_feature_id = None):
+    def __init__(self, parent, conn, map_canvas, table_map = {}, selected_layer_id = None, selected_feature_id = None):
         """Constructor.
         @param parent parent widget
         @param conn dbapi2 connection to the postgresql database where logs are stored
         @param map_canvas the main QgsMapCanvas
         @param table_map a dict that associates database table name to a QGIS layer id layer_id : table_name
-        @param geometry_columns list of geometry column names to consider
         @param selected_layer_id selected layer
         @param selected_feature_id selected feature_id
         """
@@ -99,7 +100,9 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         self.conn = conn
         self.map_canvas = map_canvas
 
-        self.geometry_columns = geometry_columns
+        # geometry columns : table_name => list of geometry columns, the first one is the "main" geometry column
+        self.geometry_columns = {}
+        
         self.table_map = table_map
 
         # populate layer combo
@@ -264,6 +267,18 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         action = self.eventTable.item(i, 2).data(Qt.UserRole)
         self.replayButton.setEnabled(True)
 
+        # get geometry columns
+        data = self.row_data[i]
+        table_name = self.eventTable.item(i, 1).text()
+        gcolumns = self.geometry_columns.get(table_name)
+        if gcolumns is None:
+            schema, table = table_name.split('.')
+            cur = self.conn.cursor()
+            q = "SELECT f_geometry_column FROM geometry_columns WHERE f_table_schema='{}' AND f_table_name='{}'".format(schema, table)
+            cur.execute(q)
+            self.geometry_columns[table_name] = [r[0] for r in cur.fetchall()]
+            gcolumns = self.geometry_columns[table_name]
+
         # insertion or deletion
         if action == 'I' or action == 'D':
             self.dataTable.setColumnCount(2)
@@ -271,10 +286,10 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
             data = self.row_data[i]
             j = 0
             for k, v in data.iteritems():
-                if k == self.geometry_columns[0]:                                        
+                if len(gcolumns) > 0 and k == gcolumns[0]:                                        
                     self.displayGeometry(ewkb_to_geom(v))
                     continue
-                if k in self.geometry_columns:
+                if k in gcolumns:
                     continue
                 if v is None:
                     continue
@@ -290,12 +305,12 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
             changed_fields = self.changed_fields[i]
             j = 0
             for k, v in data.iteritems():
-                if k == self.geometry_columns[0]:
+                if len(gcolumns) > 0 and k == gcolumns[0]:
                     w = changed_fields.get(k)
                     if w is not None:
                         self.displayGeometry(ewkb_to_geom(v), ewkb_to_geom(w))
                     continue
-                if k in self.geometry_columns:
+                if k in gcolumns:
                     continue
                 w = changed_fields.get(k)
                 if v is None and w is None:
