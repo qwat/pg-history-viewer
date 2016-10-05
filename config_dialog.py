@@ -3,7 +3,7 @@ import os
 
 from PyQt4 import uic
 from PyQt4.QtCore import QSettings, QPoint
-from PyQt4.QtGui import QDialog, QMessageBox, QMenu
+from PyQt4.QtGui import QDialog, QMessageBox, QMenu, QIcon
 
 from qgis.core import QgsProject, QgsLayerTreeModel
 from qgis.gui import QgsLayerTreeView
@@ -20,6 +20,8 @@ class ConfigDialog(QDialog, FORM_CLASS):
         """
         super(ConfigDialog, self).__init__(parent)
         self.setupUi(self)
+
+        self.reloadBtn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'repeat.svg')))
 
         self._table_map = table_map
 
