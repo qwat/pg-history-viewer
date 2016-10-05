@@ -18,7 +18,7 @@ kv_re = re.compile('"(\w+)"=>(NULL|""|".*?[^\\\\]")(?:, |$)')
 def parse_hstore(hstore_str):
     if hstore_str is None:
         return {}
-    return dict([(m.group(1), None if m.group(2) == 'NULL' else m.group(2).replace('\\"', '"')[1:-1]) for m in re.finditer(kv_re, hstore_str)])
+    return dict([(m.group(1), None if m.group(2) == 'NULL' else m.group(2).replace('\\"', '"')[1:-1]) for m in re.finditer(kv_re, hstore_str.decode('utf8'))])
 
 def ewkb_to_geom(ewkb_str):
     if ewkb_str is None:
@@ -41,6 +41,67 @@ def reset_table_widget(table_widget):
     for r in range(table_widget.rowCount() - 1, -1, -1):
         table_widget.removeRow(r)
 
+# Incremental loader
+class EventModel(QAbstractTableModel):
+    def __init__(self, cursor):
+        QAbstractItemModel.__init__(self)
+        self.cursor = cursor
+        self.__data = []
+        self.page_size = 100
+
+    def flags(self, idx):
+        return Qt.NoItemFlags | Qt.ItemIsSelectable | Qt.ItemIsEnabled
+
+    def data(self, idx, role = Qt.DisplayRole):
+        #print idx.column(), role
+        if idx.row() >= len(self.__data):
+            rc = len(self.__data)
+            # fetch more
+            remaining = idx.row() - rc + 1
+            for row in self.cursor.fetchmany(remaining):
+                self.__data.append(row)
+
+        row = self.__data[idx.row()]
+        event_id, tstamp, table_name, action, application, row_data, changed_fields = row
+        if idx.column() == 0:
+            if role == Qt.DisplayRole:
+                return tstamp.strftime("%x - %X")
+            elif role == Qt.UserRole:
+                return event_id
+        elif idx.column() == 1:
+            if role == Qt.DisplayRole:
+                return table_name
+        elif idx.column() == 2:
+            if role == Qt.DisplayRole:
+                if action == 'I':
+                    return "Insertion"
+                elif action == 'D':
+                    return "Delete"
+                elif action == 'U':
+                    return "Update"
+            elif role == Qt.UserRole:
+                return action
+        elif idx.column() == 3:
+            if role == Qt.DisplayRole:
+                return application
+        return None
+
+    def row_data(self, row):
+        return parse_hstore(self.__data[row][5])
+
+    def changed_fields(self, row):
+        return parse_hstore(self.__data[row][6])
+
+    def headerData(self, section, orientation, role):
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+            return ("Date", "Table", "Action", "Application")[section]
+        return QAbstractTableModel.headerData(self, section, orientation, role)
+
+    def rowCount(self, parent):
+        return self.cursor.rowcount
+
+    def columnCount(self, parent):
+        return 4
 
 class GeometryDisplayer:
 
@@ -124,7 +185,7 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
 
         self.populate()
 
-        self.eventTable.itemSelectionChanged.connect(self.onEventSelection)
+        self.eventTable.selectionModel().currentRowChanged.connect(self.onEventSelection)
         self.dataTable.hide()
 
         #
@@ -171,9 +232,6 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         return QDialog.done(self, status)
 
     def populate(self):
-        self.row_data = []
-        self.changed_fields = []
-
         wheres = []
         
         # filter by selected layer/table
@@ -224,52 +282,28 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
             q += " WHERE " + " AND ".join(wheres)
         print(q)
         cur.execute(q)
-        reset_table_widget(self.eventTable)
-        self.eventTable.setHorizontalHeaderLabels(["Date", "Table", "Action", "Application"])
-        i = 0
-        for row in cur.fetchall():
-            event_id, tstamp, table_name, action, application, row_data, changed_fields = row
-            # column 0 data: event_id
-            # column 2 data: action
-            self.eventTable.insertRow(i)
-            self.eventTable.setItem(i, 0, QTableWidgetItem(tstamp.strftime("%x - %X")))
-            self.eventTable.item(i, 0).setData(Qt.UserRole, event_id)
-            self.eventTable.setItem(i, 1, QTableWidgetItem(table_name))
-            if action == 'I':
-                self.eventTable.setItem(i, 2, QTableWidgetItem("Insertion"))
-            elif action == 'U':
-                self.eventTable.setItem(i, 2, QTableWidgetItem("Update"))
-            elif action == 'D':
-                self.eventTable.setItem(i, 2, QTableWidgetItem("Delete"))
-            self.eventTable.item(i, 2).setData(Qt.UserRole, action)
-            self.eventTable.setItem(i, 3, QTableWidgetItem(application))
+        self.eventModel = EventModel(cur)
+        self.eventTable.setModel(self.eventModel)
 
-            # store data
-            self.row_data.append(parse_hstore(row_data))
-            self.changed_fields.append(parse_hstore(changed_fields))
-            
-            i += 1
+        self.eventTable.horizontalHeader().setResizeMode(QHeaderView.Interactive)
 
-        self.eventTable.resizeColumnsToContents()
-
-    def onEventSelection(self):
+    def onEventSelection(self, current_idx, previous_idx):
         reset_table_widget(self.dataTable)
         self.undisplayGeometry()
         self.replayButton.setEnabled(False)
 
         # get current selection
-        rows = [i.row() for i in self.eventTable.selectedItems()]
-        if len(rows) == 0:
+        if current_idx.row() == -1:
             self.dataTable.hide()
             return
-        i = rows[0]
+        i = current_idx.row()
         # action from current selection
-        action = self.eventTable.item(i, 2).data(Qt.UserRole)
+        action = self.eventModel.data(self.eventModel.index(i, 2), Qt.UserRole)
         self.replayButton.setEnabled(True)
 
         # get geometry columns
-        data = self.row_data[i]
-        table_name = self.eventTable.item(i, 1).text()
+        data = self.eventModel.row_data(i)
+        table_name = self.eventModel.data(self.eventModel.index(i, 1))
         gcolumns = self.geometry_columns.get(table_name)
         if gcolumns is None:
             schema, table = table_name.split('.')
@@ -283,7 +317,6 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         if action == 'I' or action == 'D':
             self.dataTable.setColumnCount(2)
             self.dataTable.setHorizontalHeaderLabels(["Column", "Value"])
-            data = self.row_data[i]
             j = 0
             for k, v in data.iteritems():
                 if len(gcolumns) > 0 and k == gcolumns[0]:                                        
@@ -301,8 +334,7 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         elif action == 'U':
             self.dataTable.setColumnCount(3)
             self.dataTable.setHorizontalHeaderLabels(["Column", "Old value", "New value"])
-            data = self.row_data[i]
-            changed_fields = self.changed_fields[i]
+            changed_fields = self.eventModel.changed_fields(i)
             j = 0
             for k, v in data.iteritems():
                 if len(gcolumns) > 0 and k == gcolumns[0]:
@@ -345,12 +377,11 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
             self.displayer.display(geom, geom2)
 
     def onReplayEvent(self):
-        rows = [i.row() for i in self.eventTable.selectedItems()]
-        if len(rows) == 0:
+        i = self.eventTable.selectionModel().currentIndex().row()
+        if i == -1:
             return
-        i = rows[0]
         # event_id from current selection
-        event_id = self.eventTable.item(i, 0).data(Qt.UserRole)
+        event_id = self.eventModel.data(self.eventModel.index(i, 0), Qt.UserRole)
 
         r = QMessageBox.question(self, u"Replay", u"Are your sure you want to replay the selected event ?", QMessageBox.Yes | QMessageBox.No )
         if r == QMessageBox.No:
