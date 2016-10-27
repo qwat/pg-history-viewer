@@ -57,6 +57,23 @@
        </item>
       </layout>
      </item>
+     <item row="2" column="0">
+      <widget class="QCheckBox" name="replayFunctionChk">
+       <property name="text">
+        <string>Replay function</string>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QComboBox" name="replayFunctionCombo">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>
@@ -130,6 +147,22 @@
     <hint type="destinationlabel">
      <x>286</x>
      <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>replayFunctionChk</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>replayFunctionCombo</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>78</x>
+     <y>88</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>389</x>
+     <y>91</y>
     </hint>
    </hints>
   </connection>

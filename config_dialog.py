@@ -14,7 +14,7 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'config.ui'))
 
 class ConfigDialog(QDialog, FORM_CLASS):
-    def __init__(self, parent, db_connection = "", audit_table = "", table_map = {}):
+    def __init__(self, parent, db_connection = "", audit_table = "", table_map = {}, replay_function = None):
         """Constructor.
         @param parent parent widget
         """
@@ -40,6 +40,9 @@ class ConfigDialog(QDialog, FORM_CLASS):
             self.reloadBtn.click()
             if audit_table:
                 self.auditTableCombo.setCurrentIndex(self.auditTableCombo.findText(audit_table))
+            if replay_function:
+                self.replayFunctionCombo.setCurrentIndex(self.replayFunctionCombo.findText(replay_function))
+                self.replayFunctionChk.setChecked(True)
 
         self.conn = None
         self.tables = None
@@ -79,10 +82,10 @@ class ConfigDialog(QDialog, FORM_CLASS):
             QMessageBox.critical(None, "PostgreSQL connection problem", e.message)
             return
 
+        cur = self.conn.cursor()
         # populate tables
         q = "SELECT table_schema ,table_name FROM information_schema.tables" \
             " where table_schema not in ('pg_catalog', 'information_schema') order by table_schema, table_name"
-        cur = self.conn.cursor()
         cur.execute(q)
         self.auditTableCombo.clear()
         self.tableCombo.clear()
@@ -91,6 +94,17 @@ class ConfigDialog(QDialog, FORM_CLASS):
             t = r[0] + "." + r[1]
             self.auditTableCombo.addItem(t)
             self.tableCombo.addItem(t)
+
+        # populate functions
+        q = "select routine_schema, routine_name from information_schema.routines where " \
+            "routine_schema not in ('pg_catalog', 'information_schema') " \
+            "and data_type = 'void' " \
+            "and substr(routine_name, 1, 1) != '_'"
+        cur.execute(q)
+        self.replayFunctionCombo.clear()
+        for r in cur.fetchall():
+            t = r[0] + "." + r[1]
+            self.replayFunctionCombo.addItem(t)
 
     def onLayerChanged(self, layer):
         if layer is None:
@@ -113,6 +127,11 @@ class ConfigDialog(QDialog, FORM_CLASS):
 
     def audit_table(self):
         return self.auditTableCombo.currentText()
+
+    def replay_function(self):
+        if not self.replayFunctionChk.isChecked():
+            return None
+        return self.replayFunctionCombo.currentText()
 
     def db_connection(self):
         return self.dbConnectionText.text()

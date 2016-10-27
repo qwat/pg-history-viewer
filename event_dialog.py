@@ -139,12 +139,13 @@ class GeometryDisplayer:
         self.canvas.setExtent(bbox)        
 
 class EventDialog(QtGui.QDialog, FORM_CLASS):
-    def __init__(self, parent, conn, map_canvas, audit_table, table_map = {}, selected_layer_id = None, selected_feature_id = None):
+    def __init__(self, parent, conn, map_canvas, audit_table, replay_function = None, table_map = {}, selected_layer_id = None, selected_feature_id = None):
         """Constructor.
         @param parent parent widget
         @param conn dbapi2 connection to the postgresql database where logs are stored
         @param map_canvas the main QgsMapCanvas
         @param audit_table the name of the audit table in the database
+        @param replay_function name of the replay function in the database
         @param table_map a dict that associates database table name to a QGIS layer id layer_id : table_name
         @param selected_layer_id selected layer
         @param selected_feature_id selected feature_id
@@ -162,6 +163,7 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         self.conn = conn
         self.map_canvas = map_canvas
         self.audit_table = audit_table
+        self.replay_function = replay_function
 
         # geometry columns : table_name => list of geometry columns, the first one is the "main" geometry column
         self.geometry_columns = {}
@@ -224,7 +226,8 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         self.layerCombo.currentIndexChanged.connect(self.onCurrentLayerChanged)
 
         # replay button
-        self.replayButton.clicked.connect(self.onReplayEvent)
+        if self.replay_function:
+            self.replayButton.clicked.connect(self.onReplayEvent)
 
     def onCurrentLayerChanged(self, index):
         self.idEdit.setEnabled(index > 0)
@@ -301,7 +304,8 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         i = current_idx.row()
         # action from current selection
         action = self.eventModel.data(self.eventModel.index(i, 2), Qt.UserRole)
-        self.replayButton.setEnabled(True)
+        if self.replay_function:
+            self.replayButton.setEnabled(True)
 
         # get geometry columns
         data = self.eventModel.row_data(i)
@@ -385,12 +389,12 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         # event_id from current selection
         event_id = self.eventModel.data(self.eventModel.index(i, 0), Qt.UserRole)
 
-        r = QMessageBox.question(self, u"Replay", u"Are your sure you want to replay the selected event ?", QMessageBox.Yes | QMessageBox.No )
+        r = QMessageBox.question(self, u"Replay", u"Are you sure you want to replay the selected event ?", QMessageBox.Yes | QMessageBox.No )
         if r == QMessageBox.No:
             return
 
         cur = self.conn.cursor()
-        cur.execute("SELECT qwat_sys.replay_event({})".format(event_id))
+        cur.execute("SELECT {}({})".format(self.replay_function, event_id))
         self.conn.commit()
 
         # refresh table

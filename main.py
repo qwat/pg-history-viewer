@@ -26,6 +26,13 @@ def project_audit_table():
     audit_table, ok = QgsProject.instance().readEntry("HistoryViewer", "audit_table", "")
     return audit_table
 
+def set_project_replay_function(replay_function):
+    QgsProject.instance().writeEntry("HistoryViewer", "replay_function", replay_function)
+
+def project_replay_function():
+    replay_function, ok = QgsProject.instance().readEntry("HistoryViewer", "replay_function", "")
+    return replay_function
+
 def set_project_audit_table(audit_table):
     QgsProject.instance().writeEntry("HistoryViewer", "audit_table", audit_table)
 
@@ -76,6 +83,7 @@ class Plugin():
                                             conn,
                                             self.iface.mapCanvas(),
                                             project_audit_table(),
+                                            replay_function = project_replay_function(),
                                             table_map = table_map,
                                             selected_layer_id = layer_id,
                                             selected_feature_id = feature_id)
@@ -85,14 +93,13 @@ class Plugin():
         table_map = project_table_map()
         db_connection = database_connection_string()
         audit_table = project_audit_table()
-        self.config_dlg = config_dialog.ConfigDialog(self.iface.mainWindow(), db_connection, audit_table, table_map)
+        replay_function = project_replay_function()
+        self.config_dlg = config_dialog.ConfigDialog(self.iface.mainWindow(), db_connection, audit_table, table_map, replay_function)
         r = self.config_dlg.exec_()
         if r == 1:
-            table_map = self.config_dlg.table_map()
-            db_connection = self.config_dlg.db_connection()
-            audit_table = self.config_dlg.audit_table()
             # save to the project
-            set_database_connection_string(db_connection)
-            set_project_table_map(table_map)
-            set_project_audit_table(audit_table)
+            set_database_connection_string(self.config_dlg.db_connection())
+            set_project_table_map(self.config_dlg.table_map())
+            set_project_audit_table(self.config_dlg.audit_table())
+            set_project_replay_function(self.config_dlg.replay_function())
 
