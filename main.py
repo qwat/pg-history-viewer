@@ -75,6 +75,7 @@ class Plugin():
         self.dlg = event_dialog.EventDialog(self.iface.mainWindow(),
                                             conn,
                                             self.iface.mapCanvas(),
+                                            project_audit_table(),
                                             table_map = table_map,
                                             selected_layer_id = layer_id,
                                             selected_feature_id = feature_id)

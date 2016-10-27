@@ -139,11 +139,12 @@ class GeometryDisplayer:
         self.canvas.setExtent(bbox)        
 
 class EventDialog(QtGui.QDialog, FORM_CLASS):
-    def __init__(self, parent, conn, map_canvas, table_map = {}, selected_layer_id = None, selected_feature_id = None):
+    def __init__(self, parent, conn, map_canvas, audit_table, table_map = {}, selected_layer_id = None, selected_feature_id = None):
         """Constructor.
         @param parent parent widget
         @param conn dbapi2 connection to the postgresql database where logs are stored
         @param map_canvas the main QgsMapCanvas
+        @param audit_table the name of the audit table in the database
         @param table_map a dict that associates database table name to a QGIS layer id layer_id : table_name
         @param selected_layer_id selected layer
         @param selected_feature_id selected feature_id
@@ -160,6 +161,7 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
 
         self.conn = conn
         self.map_canvas = map_canvas
+        self.audit_table = audit_table
 
         # geometry columns : table_name => list of geometry columns, the first one is the "main" geometry column
         self.geometry_columns = {}
@@ -276,7 +278,7 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
 
         cur = self.conn.cursor()
         # base query
-        q = "SELECT event_id, action_tstamp_clk, schema_name || '.' || table_name, action, application_name, row_data, changed_fields FROM qwat_sys.logged_actions l"
+        q = "SELECT event_id, action_tstamp_clk, schema_name || '.' || table_name, action, application_name, row_data, changed_fields FROM {} l".format(self.audit_table)
         # where clause
         if len(wheres) > 0:
             q += " WHERE " + " AND ".join(wheres)

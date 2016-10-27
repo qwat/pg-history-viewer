@@ -1,7 +1,7 @@
 def name():
-    return u"QWAT history viewer"
+    return u"PostgreSQL history viewer"
 def description():
-    return u"QWAT history viewer"
+    return u"History viewer for a PostgreSQL base with audit triggers"
 def version():
     return u"0.1"
 def qgisMinimumVersion():

@@ -1,6 +1,6 @@
 # global
 
-PLUGINNAME = qwat_history_viewer
+PLUGINNAME = pg_history_viewer
 
 PY_FILES = main.py __init__.py event_dialog.py config_dialog.py
 

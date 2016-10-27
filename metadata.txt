@@ -1,5 +1,5 @@
 [general]
-name=History viewer for the QWAT project
+name=History viewer for a PostgreSQL base with audit triggers
 description=This plugin allows to view audit logs and replay some past events
 version=0.1
 qgisMinimumVersion=2.0
