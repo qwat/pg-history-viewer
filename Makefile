@@ -26,7 +26,7 @@ deploy: transcompile
 
 # The zip target deploys the plugin and creates a zip file with the deployed
 # content. You can then upload the zip file on http://plugins.qgis.org
-zip: deploy dclean
+zip: deploy
 	echo $(VERSION)
 	rm -f $(PLUGINNAME)*.zip
 	cd $(HOME)/.qgis2/python/plugins; zip -9r $(CURDIR)/$(PLUGINNAME)-$(VERSION).zip $(PLUGINNAME)
