@@ -3,9 +3,9 @@ def name():
 def description():
     return u"History viewer for a PostgreSQL base with audit triggers"
 def version():
-    return u"0.1"
+    return u"1.0"
 def qgisMinimumVersion():
-    return u"2.0"
+    return u"2.12"
 def qgisMaximumVersion():
     return u"9.99"
 def classFactory(iface):
