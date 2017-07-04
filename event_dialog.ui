@@ -70,10 +70,6 @@
        <property name="text">
         <string/>
        </property>
-       <property name="icon">
-        <iconset>
-         <normaloff>icons/mActionFilter2.svg</normaloff>icons/mActionFilter2.svg</iconset>
-       </property>
       </widget>
      </item>
     </layout>
@@ -318,7 +314,6 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources/>
  <connections>
   <connection>
    <sender>dataChck</sender>
