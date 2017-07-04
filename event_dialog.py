@@ -174,8 +174,10 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
-        # reload button icon
+        
+        # reload button icons
         self.searchButton.setIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'mActionFilter2.svg')))
+        self.replayButton.setIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'mIconWarn.png')))
 
         self.conn = conn
         self.map_canvas = map_canvas
@@ -406,17 +408,10 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         # event_id from current selection
         event_id = self.eventModel.data(self.eventModel.index(i, 0), Qt.UserRole)
 
-        r = QMessageBox.question(self, u"Replay", u"Are you sure you want to replay the selected event ?", QMessageBox.Yes | QMessageBox.No )
-        if r == QMessageBox.No:
-            return
-
         cur = self.conn.cursor()
         cur.execute("SELECT {}({})".format(self.replay_function, event_id))
         self.conn.commit()
 
         # refresh table
         self.populate()
-
-
-        
         
