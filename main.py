@@ -16,7 +16,6 @@
  */
 """
 # -*- coding: utf-8 -*-
-
 import os
 
 # import from __init__
@@ -26,6 +25,8 @@ from PyQt4.QtCore import QSettings
 from PyQt4.QtGui import QAction, QIcon, QMessageBox
 
 from qgis.core import QgsMapLayerRegistry, QgsProject
+
+from psycopg2 import Error
 
 import psycopg2
 
@@ -106,6 +107,15 @@ class Plugin():
                                             table_map = table_map,
                                             selected_layer_id = layer_id,
                                             selected_feature_id = feature_id)
+                                            
+        # Populate dialog & catch error if any.
+        try:
+            self.dlg.populate()
+        except Error as e:
+            QMessageBox.critical(None, "Configuration problem", "Database configuration is invalid, please check the project configuration")
+            self.onConfigure()
+            return
+        
         self.dlg.show()
 
     def onConfigure(self):
