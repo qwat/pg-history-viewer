@@ -127,21 +127,29 @@ class GeometryDisplayer:
 
     def __init__(self, canvas ):
         self.canvas = canvas
+        
         # main rubber
         self.rubber1 = QgsRubberBand(self.canvas)
         self.rubber1.setWidth(2)
-        self.rubber1.setBorderColor(QColor("#f00"))
-        self.rubber1.setFillColor(QColor("#ff6969"))
+        self.rubber1.setBorderColor(self.newGeometryColor())
+        self.rubber1.setFillColor(self.newGeometryColor())
+        
         # old geometry rubber
         self.rubber2 = QgsRubberBand(self.canvas)
         self.rubber2.setWidth(2)
-        self.rubber2.setBorderColor(QColor("#bbb"))
-        self.rubber2.setFillColor(QColor("#ccc"))
+        self.rubber2.setBorderColor(self.oldGeometryColor())
+        self.rubber2.setFillColor(self.oldGeometryColor())
 
     def reset(self):
         self.rubber1.reset()
         self.rubber2.reset()
-
+        
+    def oldGeometryColor(self):
+        return QColor("#ff5733")
+        
+    def newGeometryColor(self):
+        return QColor("#00f")
+ 
     def display(self, geom1, geom2 = None):
         """
         @param geom1 base geometry (old geometry for an update)
@@ -224,7 +232,6 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         # copy layer set
         self.inner_canvas.setLayerSet([QgsMapCanvasLayer(l) for l in self.map_canvas.layers()])
         self.inner_canvas.setExtent(self.map_canvas.extent())
-        self.vbox.addWidget(self.inner_canvas)
         self.geometryGroup.setLayout(self.vbox)
         self.geometryGroup.hide()
 
@@ -237,6 +244,24 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         self.beforeDt.setDateTime(QDateTime.currentDateTime())
 
         self.advancedGroup.setCollapsed(True)
+        
+        # Old/new geometry legend.
+        self.hbox = QHBoxLayout()
+        
+        self.oldGeometryLabel = QLabel()
+        self.oldGeometryLabel.setText("------- old geometry")
+        self.oldGeometryLabel.setStyleSheet("color: " + self.displayer.oldGeometryColor().name())
+        
+        self.newGeometryLabel = QLabel()
+        self.newGeometryLabel.setText("------- new geometry (will be restored when replaying event)")
+        self.newGeometryLabel.setStyleSheet("color: " + self.displayer.newGeometryColor().name())
+        
+        self.hbox.addWidget(self.oldGeometryLabel)
+        self.hbox.addWidget(self.newGeometryLabel)
+        self.hbox.addItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Fixed))
+       
+        self.vbox.addLayout(self.hbox)
+        self.vbox.addWidget(self.inner_canvas)
 
         # refresh results when the search button is clicked
         self.searchButton.clicked.connect(self.populate)
