@@ -17,6 +17,9 @@
 """
 # -*- coding: utf-8 -*-
 import os
+from psycopg2 import Error
+
+import error_dialog
 
 from PyQt4 import QtGui, uic
 from PyQt4.QtCore import *
@@ -124,21 +127,29 @@ class GeometryDisplayer:
 
     def __init__(self, canvas ):
         self.canvas = canvas
+        
         # main rubber
         self.rubber1 = QgsRubberBand(self.canvas)
         self.rubber1.setWidth(2)
-        self.rubber1.setBorderColor(QColor("#f00"))
-        self.rubber1.setFillColor(QColor("#ff6969"))
+        self.rubber1.setBorderColor(self.newGeometryColor())
+        self.rubber1.setFillColor(self.newGeometryColor())
+        
         # old geometry rubber
         self.rubber2 = QgsRubberBand(self.canvas)
         self.rubber2.setWidth(2)
-        self.rubber2.setBorderColor(QColor("#bbb"))
-        self.rubber2.setFillColor(QColor("#ccc"))
+        self.rubber2.setBorderColor(self.oldGeometryColor())
+        self.rubber2.setFillColor(self.oldGeometryColor())
 
     def reset(self):
         self.rubber1.reset()
         self.rubber2.reset()
-
+        
+    def oldGeometryColor(self):
+        return QColor("#ff5733")
+        
+    def newGeometryColor(self):
+        return QColor("#00f")
+ 
     def display(self, geom1, geom2 = None):
         """
         @param geom1 base geometry (old geometry for an update)
@@ -221,7 +232,6 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         # copy layer set
         self.inner_canvas.setLayerSet([QgsMapCanvasLayer(l) for l in self.map_canvas.layers()])
         self.inner_canvas.setExtent(self.map_canvas.extent())
-        self.vbox.addWidget(self.inner_canvas)
         self.geometryGroup.setLayout(self.vbox)
         self.geometryGroup.hide()
 
@@ -234,6 +244,24 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         self.beforeDt.setDateTime(QDateTime.currentDateTime())
 
         self.advancedGroup.setCollapsed(True)
+        
+        # Old/new geometry legend.
+        self.hbox = QHBoxLayout()
+        
+        self.oldGeometryLabel = QLabel()
+        self.oldGeometryLabel.setText("------- old geometry")
+        self.oldGeometryLabel.setStyleSheet("color: " + self.displayer.oldGeometryColor().name())
+        
+        self.newGeometryLabel = QLabel()
+        self.newGeometryLabel.setText("------- new geometry (will be restored when replaying event)")
+        self.newGeometryLabel.setStyleSheet("color: " + self.displayer.newGeometryColor().name())
+        
+        self.hbox.addWidget(self.oldGeometryLabel)
+        self.hbox.addWidget(self.newGeometryLabel)
+        self.hbox.addItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Fixed))
+       
+        self.vbox.addLayout(self.hbox)
+        self.vbox.addWidget(self.inner_canvas)
 
         # refresh results when the search button is clicked
         self.searchButton.clicked.connect(self.populate)
@@ -305,6 +333,8 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         cur.execute(q)
         self.eventModel = EventModel(cur)
         self.eventTable.setModel(self.eventModel)
+        
+        self.eventTable.selectionModel().currentRowChanged.connect(self.onEventSelection)
 
         self.eventTable.horizontalHeader().setResizeMode(QHeaderView.Interactive)
 
@@ -406,7 +436,16 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         event_id = self.eventModel.data(self.eventModel.index(i, 0), Qt.UserRole)
 
         cur = self.conn.cursor()
-        cur.execute("SELECT {}({})".format(self.replay_function, event_id))
+              
+        try:
+            cur.execute("SELECT {}({})".format(self.replay_function, event_id))
+        except Error as e:
+            self.error_dlg = error_dialog.ErrorDialog(self)
+            self.error_dlg.setErrorText(e.diag.severity + ": " + e.diag.message_primary)
+            self.error_dlg.setDetailsText(e.diag.message_detail)
+            self.error_dlg.setContextText(e.diag.context)
+            self.error_dlg.show()
+
         self.conn.commit()
 
         # refresh table

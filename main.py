@@ -32,6 +32,7 @@ import psycopg2
 
 import event_dialog
 import config_dialog
+import credentials_dialog
 
 PLUGIN_PATH=os.path.dirname(__file__)
 
@@ -70,6 +71,11 @@ def set_project_table_map(table_map):
 class Plugin():
     def __init__(self, iface):
         self.iface = iface
+        
+        # Init database user credentials.
+        self.username = ""
+        self.password = ""
+        self.useStoredPassword = 0
 
     def initGui(self):
         self.listEventsAction = QAction(QIcon(os.path.join(PLUGIN_PATH, "icons", "qaudit-64.png")), u"List events", self.iface.mainWindow())
@@ -87,15 +93,52 @@ class Plugin():
         self.iface.removeToolBarIcon(self.listEventsAction)
         self.iface.removePluginMenu(plugin_name(),self.listEventsAction)
         self.iface.removePluginMenu(plugin_name(),self.configureAction)
+        
+    def onUserCredentialsChanged(self, username, password):
+        self.password = password
+        self.username = username
+        self.useStoredPassword = 1
+        
+    def onRetryConnection(self):
+        self.onListEvents(self.layer_id, self.feature_id)
 
     def onListEvents(self, layer_id = None, feature_id = None):
+        # Store arguments if retry is needed.
+        self.layer_id   = layer_id
+        self.feature_id = feature_id
+        
         db_connection = database_connection_string()
         if not db_connection:
             QMessageBox.critical(None, "Configuration problem", "No database configuration has been found, please configure the project")
             self.onConfigure()
             return
+            
+        # Add user credentials if stored.
+        if self.useStoredPassword == 1:
+            db_connection = db_connection + "user='" + self.username + "' password='" + self.password + "'"
 
-        conn = psycopg2.connect(db_connection)
+        # Try to connect to database.
+        conn = None
+        
+        try:
+            conn = psycopg2.connect(db_connection)
+            
+        except Exception as ex:
+            # Ask user for credentials.
+            self.credDlg = credentials_dialog.CredentialsDialog(None)
+            
+            self.credDlg.setErrorText(str(ex))
+            self.credDlg.setDomainText(db_connection)
+            self.credDlg.setPasswordText("")
+            
+            self.credDlg.saveCredentialsRequested.connect(self.onUserCredentialsChanged)
+            self.credDlg.retryRequested.connect(self.onRetryConnection)
+            
+            self.credDlg.show()
+            
+            self.useStoredPassword = 0
+            
+            return
 
         table_map = project_table_map()
         
