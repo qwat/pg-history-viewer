@@ -22,21 +22,10 @@ from PyQt4 import uic
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-FORM_CLASS, _ = uic.loadUiType(os.path.join(
-    os.path.dirname(__file__), 'credentials_dialog.ui'))
+FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'credentials_dialog.ui'))
 
+# Display a dialog for user credentials input.
 class CredentialsDialog(QDialog, FORM_CLASS):
-    
-    saveCredentialsRequested = pyqtSignal('QString', 'QString', name='saveCredentialsRequested')
-    retryRequested = pyqtSignal(name='retryRequested')
-    
-    def __init__(self, parent):
-        super(CredentialsDialog, self).__init__(parent)
-        self.setupUi(self)
-        
-        self.retryButton.clicked.connect(self.onValidation)
-        self.cancelButton.clicked.connect(self.deleteLater)
-        
     def setErrorText(self, text):
         self.errorText.setText(text)
     
@@ -49,9 +38,42 @@ class CredentialsDialog(QDialog, FORM_CLASS):
     def setPasswordText(self, text):
         self.passwordText.setText(text)
         
+    def getUserText(self):
+        return self.userText.text()
+        
+    def getPasswordText(self):
+        return self.passwordText.text()
+        
+    def hasUserCanceled(self):
+        return self.userHasCancel
+    
+    #
+    # Internal members.
+    #
+    userHasCancel = False
+    
+    def __init__(self, parent):
+        super(CredentialsDialog, self).__init__(parent)
+        self.setupUi(self)
+        
+        self.retryButton.clicked.connect(self.onValidation)
+        self.cancelButton.clicked.connect(self.onCancel)
+        
     def onValidation(self):
-        # Emit informations.
-        self.saveCredentialsRequested.emit(self.userText.text(), self.passwordText.text())
-        self.retryRequested.emit()
+        self.close()
+        self.userHasCancel = False
+        
+    def onCancel(self):
+        self.userHasCancel = True
 
-        self.deleteLater()
+        self.close()
+        
+    def closeEvent(self, event):
+        self.userHasCancel = True
+            
+    def keyPressEvent(self, event):
+        if not event.key() == Qt.Key_Escape:
+            super(QDialog, self).keyPressEvent(event)
+        
+        else:
+            self.onCancel()

@@ -24,7 +24,7 @@ from . import name as plugin_name
 from PyQt4.QtCore import QSettings
 from PyQt4.QtGui import QAction, QIcon, QMessageBox
 
-from qgis.core import QgsMapLayerRegistry, QgsProject
+from qgis.core import QgsMapLayerRegistry, QgsProject, QgsDataSourceURI
 
 from psycopg2 import Error
 
@@ -33,6 +33,7 @@ import psycopg2
 import event_dialog
 import config_dialog
 import credentials_dialog
+import connection_wrapper
 
 PLUGIN_PATH=os.path.dirname(__file__)
 
@@ -72,10 +73,11 @@ class Plugin():
     def __init__(self, iface):
         self.iface = iface
         
-        # Init database user credentials.
-        self.username = ""
-        self.password = ""
-        self.useStoredPassword = 0
+        # Create database connection wrappers.
+        self.connection_wrapper_read = connection_wrapper.ConnectionWrapper()
+        self.connection_wrapper_read.disableTransactionGroup(True)
+        
+        self.connection_wrapper_write = connection_wrapper.ConnectionWrapper()
 
     def initGui(self):
         self.listEventsAction = QAction(QIcon(os.path.join(PLUGIN_PATH, "icons", "qaudit-64.png")), u"List events", self.iface.mainWindow())
@@ -88,62 +90,37 @@ class Plugin():
         self.configureAction.triggered.connect(self.onConfigure)
         self.iface.addPluginToMenu(plugin_name(), self.configureAction)
 
-
     def unload(self):
         self.iface.removeToolBarIcon(self.listEventsAction)
         self.iface.removePluginMenu(plugin_name(),self.listEventsAction)
         self.iface.removePluginMenu(plugin_name(),self.configureAction)
-        
-    def onUserCredentialsChanged(self, username, password):
-        self.password = password
-        self.username = username
-        self.useStoredPassword = 1
-        
-    def onRetryConnection(self):
-        self.onListEvents(self.layer_id, self.feature_id)
 
     def onListEvents(self, layer_id = None, feature_id = None):
-        # Store arguments if retry is needed.
-        self.layer_id   = layer_id
-        self.feature_id = feature_id
-        
+        # Get database connection string.
         db_connection = database_connection_string()
         if not db_connection:
             QMessageBox.critical(None, "Configuration problem", "No database configuration has been found, please configure the project")
             self.onConfigure()
             return
             
-        # Add user credentials if stored.
-        if self.useStoredPassword == 1:
-            db_connection = db_connection + "user='" + self.username + "' password='" + self.password + "'"
-
-        # Try to connect to database.
-        conn = None
+        # Create database connections.
+        self.connection_wrapper_read.openConnection(db_connection)
         
-        try:
-            conn = psycopg2.connect(db_connection)
-            
-        except Exception as ex:
-            # Ask user for credentials.
-            self.credDlg = credentials_dialog.CredentialsDialog(None)
-            
-            self.credDlg.setErrorText(str(ex))
-            self.credDlg.setDomainText(db_connection)
-            self.credDlg.setPasswordText("")
-            
-            self.credDlg.saveCredentialsRequested.connect(self.onUserCredentialsChanged)
-            self.credDlg.retryRequested.connect(self.onRetryConnection)
-            
-            self.credDlg.show()
-            
-            self.useStoredPassword = 0
-            
+        # Reuse read connection for write direct connection.
+        self.connection_wrapper_write.psycopg2Connection = self.connection_wrapper_read.psycopg2Connection
+        self.connection_wrapper_write.openConnection(db_connection)
+
+        # Database connection has failed.
+        if self.connection_wrapper_read.isValid() == False or self.connection_wrapper_write.isValid() == False:
+            print "No database connection established."
             return
 
+        # Database connection success.
         table_map = project_table_map()
         
         self.dlg = event_dialog.EventDialog(self.iface.mainWindow(),
-                                            conn,
+                                            self.connection_wrapper_read,
+                                            self.connection_wrapper_write,
                                             self.iface.mapCanvas(),
                                             project_audit_table(),
                                             replay_function = project_replay_function(),
@@ -154,6 +131,7 @@ class Plugin():
         # Populate dialog & catch error if any.
         try:
             self.dlg.populate()
+            
         except Error as e:
             QMessageBox.critical(None, "Configuration problem", "Database configuration is invalid, please check the project configuration")
             self.onConfigure()
@@ -168,10 +146,10 @@ class Plugin():
         replay_function = project_replay_function()
         self.config_dlg = config_dialog.ConfigDialog(self.iface.mainWindow(), db_connection, audit_table, table_map, replay_function)
         r = self.config_dlg.exec_()
+        
         if r == 1:
             # save to the project
             set_database_connection_string(self.config_dlg.db_connection())
             set_project_table_map(self.config_dlg.table_map())
             set_project_audit_table(self.config_dlg.audit_table())
             set_project_replay_function(self.config_dlg.replay_function())
-
