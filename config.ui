@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>629</width>
-    <height>472</height>
+    <height>154</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -77,26 +77,6 @@
     </layout>
    </item>
    <item>
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>Layer</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QgsLayerTreeView" name="treeView"/>
-   </item>
-   <item>
-    <widget class="QLabel" name="label_2">
-     <property name="text">
-      <string>Corresponding database table</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QComboBox" name="tableCombo"/>
-   </item>
-   <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -108,14 +88,6 @@
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>QgsLayerTreeView</class>
-   <extends>QTreeView</extends>
-   <header>qgis.gui</header>
-   <container>1</container>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections>
   <connection>

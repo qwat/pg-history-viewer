@@ -25,7 +25,7 @@ from PyQt4 import QtGui, uic
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from qgis.core import QgsGeometry, QgsMapLayerRegistry
+from qgis.core import QgsGeometry, QgsMapLayerRegistry, QgsDataSourceURI
 from qgis.gui import QgsRubberBand, QgsMapCanvas, QgsMapCanvasLayer
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -167,10 +167,23 @@ class GeometryDisplayer:
         self.canvas.setExtent(bbox)        
 
 class EventDialog(QtGui.QDialog, FORM_CLASS):
-    def __init__(self, parent, conn, map_canvas, audit_table, replay_function = None, table_map = {}, selected_layer_id = None, selected_feature_id = None):
+    
+    # Editable layer to alter edition mode (transaction group).
+    editableLayerObject = None
+    
+    # Replay is not enabled.
+    replayEnabled = False
+    
+    #
+    # Internal.
+    #
+    catchLayerModifications = True
+    
+    def __init__(self, parent, connection_wrapper_read, connection_wrapper_write, map_canvas, audit_table, replay_function = None, table_map = {}, selected_layer_id = None, selected_feature_id = None):
         """Constructor.
         @param parent parent widget
-        @param conn dbapi2 connection to the postgresql database where logs are stored
+        @param connection_wrapper_read connection wrapper (dbapi2)
+        @param connection_wrapper_write connection wrapper (dbapi2 or transaction group)
         @param map_canvas the main QgsMapCanvas
         @param audit_table the name of the audit table in the database
         @param replay_function name of the replay function in the database
@@ -190,10 +203,20 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         self.searchButton.setIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'mActionFilter2.svg')))
         self.replayButton.setIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'mIconWarn.png')))
 
-        self.conn = conn
+        # Store connections.
+        self.connection_wrapper_read  = connection_wrapper_read
+        self.connection_wrapper_write = connection_wrapper_write
+        
         self.map_canvas = map_canvas
         self.audit_table = audit_table
         self.replay_function = replay_function
+        
+        # Watch for layer added or removed for replay button state update.
+        QgsMapLayerRegistry.instance().layersRemoved.connect(self.updateReplayButtonState)
+        QgsMapLayerRegistry.instance().layersAdded.connect(self.updateReplayButtonState)
+        
+        # Register all current layers.
+        self.updateReplayButtonState()
 
         # geometry columns : table_name => list of geometry columns, the first one is the "main" geometry column
         self.geometry_columns = {}
@@ -323,25 +346,36 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
             dt = self.beforeDt.dateTime()
             wheres.append("action_tstamp_clk < '{}'".format(dt.toString(Qt.ISODate)))
 
-        cur = self.conn.cursor()
         # base query
         q = "SELECT event_id, action_tstamp_clk, schema_name || '.' || table_name, action, application_name, row_data, changed_fields FROM {} l".format(self.audit_table)
         # where clause
         if len(wheres) > 0:
             q += " WHERE " + " AND ".join(wheres)
-        print(q)
+        
+        # Create cursor.
+        cur = self.connection_wrapper_read.cursor()
+        if cur == None:
+            print "Cannot get cursor for database."
+            return
+            
         cur.execute(q)
+        
         self.eventModel = EventModel(cur)
         self.eventTable.setModel(self.eventModel)
         
         self.eventTable.selectionModel().currentRowChanged.connect(self.onEventSelection)
 
         self.eventTable.horizontalHeader().setResizeMode(QHeaderView.Interactive)
+        
+    def updateReplayButton(self):
+        self.replayButton.setEnabled(False)
+        
+        if self.replay_function and self.replayEnabled == True:
+            self.replayButton.setEnabled(True)
 
     def onEventSelection(self, current_idx, previous_idx):
         reset_table_widget(self.dataTable)
         self.undisplayGeometry()
-        self.replayButton.setEnabled(False)
 
         # get current selection
         if current_idx.row() == -1:
@@ -350,8 +384,8 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         i = current_idx.row()
         # action from current selection
         action = self.eventModel.data(self.eventModel.index(i, 2), Qt.UserRole)
-        if self.replay_function:
-            self.replayButton.setEnabled(True)
+        
+        self.updateReplayButton()
 
         # get geometry columns
         data = self.eventModel.row_data(i)
@@ -359,7 +393,13 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         gcolumns = self.geometry_columns.get(table_name)
         if gcolumns is None:
             schema, table = table_name.split('.')
-            cur = self.conn.cursor()
+            
+            # Create cursor.
+            cur = self.connection_wrapper_read.cursor()
+            if cur == None:
+                print "Cursor creation has failed"
+                return
+            
             q = "SELECT f_geometry_column FROM geometry_columns WHERE f_table_schema='{}' AND f_table_name='{}'".format(schema, table)
             cur.execute(q)
             self.geometry_columns[table_name] = [r[0] for r in cur.fetchall()]
@@ -434,20 +474,119 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
             return
         # event_id from current selection
         event_id = self.eventModel.data(self.eventModel.index(i, 0), Qt.UserRole)
-
-        cur = self.conn.cursor()
               
-        try:
-            cur.execute("SELECT {}({})".format(self.replay_function, event_id))
-        except Error as e:
+        error = ""
+        
+        q = "SELECT {}({})".format(self.replay_function, event_id)
+        
+        # Make a layer using transaction group editable to allow Sql execution.
+        self.catchLayerModifications = False
+        if self.editableLayerObject != None:
+            self.editableLayerObject.startEditing()
+        
+        error = self.connection_wrapper_write.executeSql(q)
+        
+        if self.editableLayerObject != None:
+            self.editableLayerObject.commitChanges()
+            
+        self.catchLayerModifications = True
+        
+        if error != "":
             self.error_dlg = error_dialog.ErrorDialog(self)
-            self.error_dlg.setErrorText(e.diag.severity + ": " + e.diag.message_primary)
-            self.error_dlg.setDetailsText(e.diag.message_detail)
-            self.error_dlg.setContextText(e.diag.context)
-            self.error_dlg.show()
+            self.error_dlg.setErrorText("An error has occurred during database access.")
+            self.error_dlg.setContextText(error)
+            self.error_dlg.setDetailsText("")
+            self.error_dlg.exec_()
 
-        self.conn.commit()
+        self.connection_wrapper_write.commit()
 
         # refresh table
         self.populate()
         
+        # Refresh replay button state.
+        self.updateReplayButtonState()
+        
+    # Check if provided layer database connection is identical as current connection.
+    def isLayerDatabaseCurrentConnection(self, layer):
+        source = layer.source()
+        
+        layerUri  = QgsDataSourceURI(source)
+        pluginuri = QgsDataSourceURI(self.connection_wrapper_read.db_source)
+
+        return self.areConnectionsEquals(layerUri, pluginuri)
+        
+    # Compare connections.
+    def areConnectionsEquals(self, connection1, connection2):
+        
+        # Service id defined: compare service & Ssl mode.
+        service = connection1.service() + connection2.service()
+        if service != "":
+            if connection1.service() != connection2.service():
+                return False
+            
+            if connection1.sslMode() != connection2.sslMode():
+                return False
+                
+            # Connections are equals.
+            return True
+            
+        # No service: compare host, port & database.
+        if connection1.host() != connection2.host():
+            return False
+            
+        if connection1.port() != connection2.port():
+            return False
+            
+        if connection1.database() != connection2.database():
+            return False
+            
+        # Connections are equals.
+        return True
+        
+    # Reload replay button state by checking layer edition mode.
+    def updateReplayButtonState(self, unused):
+        self.updateReplayButtonState()
+        
+    def layerEditionModeChanged(self):
+        self.updateReplayButtonState()
+        
+    def updateReplayButtonState(self):
+        
+        if self.catchLayerModifications == False:
+            return
+            
+        self.editableLayerObject = None
+        
+        # Get all layers.
+        layers = QgsMapLayerRegistry.instance().mapLayers()
+        
+        self.replayEnabled = True
+        
+        for lid, layer in layers.items():
+            
+            # Check for layer using same database connection.
+            usingSameDb = self.isLayerDatabaseCurrentConnection(layer)
+
+            # Layer is in edition mode:
+            if layer.isEditable() == True:
+                
+                # Check for database connection.
+                if usingSameDb == True:
+                    # Disable replay button.
+                    self.replayEnabled = False
+                    
+            # Layer is not editable: candidate for layer storage.
+            # Store a layer that uses this connection.
+            else:
+                if usingSameDb == True:
+                    self.editableLayerObject = layer
+                    
+            # Watch layer edition mode changes.
+            if getattr(layer, "beforeEditingStarted", None) != None and getattr(layer, "editingStopped", None) != None:
+                try:
+                    layer.editingStarted.connect(self.layerEditionModeChanged, Qt.UniqueConnection)
+                    layer.editingStopped.connect(self.layerEditionModeChanged, Qt.UniqueConnection)
+                except:
+                    pass
+
+        self.updateReplayButton()
