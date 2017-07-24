@@ -351,6 +351,9 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         # where clause
         if len(wheres) > 0:
             q += " WHERE " + " AND ".join(wheres)
+            
+        # Descending order.
+        q += " ORDER BY action_tstamp_clk DESC"
         
         # Create cursor.
         cur = self.connection_wrapper_read.cursor()
