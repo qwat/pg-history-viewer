@@ -104,6 +104,8 @@ class Plugin():
             
             # Retry if needed.
             if r == 1:
+                self.connection_wrapper_read.closeConnection()
+                self.connection_wrapper_write.closeConnection()
                 self.onListEvents(layer_id, feature_id)
             
             return
@@ -113,6 +115,8 @@ class Plugin():
         
         # Reuse read connection for write direct connection.
         self.connection_wrapper_write.psycopg2Connection = self.connection_wrapper_read.psycopg2Connection
+        self.connection_wrapper_write.db_source          = self.connection_wrapper_read.db_source
+        
         self.connection_wrapper_write.openConnection(db_connection)
 
         # Database connection has failed.
@@ -143,6 +147,8 @@ class Plugin():
             
             # Retry if needed.
             if r == 1:
+                self.connection_wrapper_read.closeConnection()
+                self.connection_wrapper_write.closeConnection()
                 self.onListEvents(layer_id, feature_id)
             
             return
