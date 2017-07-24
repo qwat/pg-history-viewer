@@ -100,7 +100,12 @@ class Plugin():
         db_connection = database_connection_string()
         if not db_connection:
             QMessageBox.critical(None, "Configuration problem", "No database configuration has been found, please configure the project")
-            self.onConfigure()
+            r = self.onConfigure()
+            
+            # Retry if needed.
+            if r == 1:
+                self.onListEvents(layer_id, feature_id)
+            
             return
             
         # Create database connections.
@@ -134,7 +139,12 @@ class Plugin():
             
         except Error as e:
             QMessageBox.critical(None, "Configuration problem", "Database configuration is invalid, please check the project configuration")
-            self.onConfigure()
+            r = self.onConfigure()
+            
+            # Retry if needed.
+            if r == 1:
+                self.onListEvents(layer_id, feature_id)
+            
             return
         
         self.dlg.show()
@@ -153,3 +163,5 @@ class Plugin():
             set_project_table_map(self.config_dlg.table_map())
             set_project_audit_table(self.config_dlg.audit_table())
             set_project_replay_function(self.config_dlg.replay_function())
+            
+        return r
