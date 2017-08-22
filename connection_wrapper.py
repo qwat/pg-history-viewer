@@ -43,7 +43,14 @@ class ConnectionWrapper():
     # Create database connection.
     # db_connection: database connection string.
     def openConnection(self, db_connection):
+        # Check for connection is already open.
+        if self.isConnected() and self.db_source == db_connection:
+            print "Connection already open: reusing it."
+            return
+        
         self.db_source = db_connection
+        
+        self.closeConnection()
         
         # Try to retrieve transaction group if enabled.
         if self.qgisTransactionGroupDisabled == False:
@@ -125,7 +132,7 @@ class ConnectionWrapper():
             
     # Close connection.
     def closeConnection(self):
-        
+
         if self.psycopg2Connection != None:
             del self.psycopg2Connection
             self.psycopg2Connection = None
@@ -133,6 +140,16 @@ class ConnectionWrapper():
         if self.qgisTransactionGroupConnection != None:
             del self.qgisTransactionGroupConnection
             self.qgisTransactionGroupConnection = None
+            
+    # Check for open connection available.
+    def isConnected(self):
+        if self.psycopg2Connection != None:
+            return True
+            
+        if self.qgisTransactionGroupConnection != None:
+            return True
+            
+        return False
     
     #
     # Internal members.

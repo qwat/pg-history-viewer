@@ -351,6 +351,9 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         # where clause
         if len(wheres) > 0:
             q += " WHERE " + " AND ".join(wheres)
+            
+        # Descending order.
+        q += " ORDER BY action_tstamp_clk DESC"
         
         # Create cursor.
         cur = self.connection_wrapper_read.cursor()
@@ -369,9 +372,11 @@ class EventDialog(QtGui.QDialog, FORM_CLASS):
         
     def updateReplayButton(self):
         self.replayButton.setEnabled(False)
+        self.replayButton.setToolTip("No replay function or layer is in edition mode: replay action is not available.")
         
         if self.replay_function and self.replayEnabled == True:
             self.replayButton.setEnabled(True)
+            self.replayButton.setToolTip("Replay the current selected item.")
 
     def onEventSelection(self, current_idx, previous_idx):
         reset_table_widget(self.dataTable)
