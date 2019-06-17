@@ -21,19 +21,19 @@ import os
 # import from __init__
 from . import name as plugin_name
 
-from PyQt4.QtCore import QSettings
-from PyQt4.QtGui import QAction, QIcon, QMessageBox
+from PyQt5.QtCore import QSettings
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QAction, QMessageBox
 
-from qgis.core import QgsMapLayerRegistry, QgsProject, QgsDataSourceURI
+from qgis.core import QgsProject
 
 from psycopg2 import Error
 
 import psycopg2
 
-import event_dialog
-import config_dialog
-import credentials_dialog
-import connection_wrapper
+from .event_dialog import EventDialog
+from .config_dialog import ConfigDialog
+from .connection_wrapper import ConnectionWrapper
 
 PLUGIN_PATH=os.path.dirname(__file__)
 
@@ -72,12 +72,12 @@ def set_project_table_map(table_map):
 class Plugin():
     def __init__(self, iface):
         self.iface = iface
-        
+
         # Create database connection wrappers.
-        self.connection_wrapper_read = connection_wrapper.ConnectionWrapper()
+        self.connection_wrapper_read = ConnectionWrapper()
         self.connection_wrapper_read.disableTransactionGroup(True)
-        
-        self.connection_wrapper_write = connection_wrapper.ConnectionWrapper()
+
+        self.connection_wrapper_write = ConnectionWrapper()
 
     def initGui(self):
         self.listEventsAction = QAction(QIcon(os.path.join(PLUGIN_PATH, "icons", "qaudit-64.png")), u"List events", self.iface.mainWindow())
@@ -101,58 +101,58 @@ class Plugin():
         if not db_connection:
             QMessageBox.critical(None, "Configuration problem", "No database configuration has been found, please configure the project")
             r = self.onConfigure()
-            
+
             # Retry if needed.
             if r == 1:
                 self.connection_wrapper_read.closeConnection()
                 self.connection_wrapper_write.closeConnection()
                 self.onListEvents(layer_id, feature_id)
-            
+
             return
-            
+
         # Create database connections.
         self.connection_wrapper_read.openConnection(db_connection)
-        
+
         # Reuse read connection for write direct connection.
         self.connection_wrapper_write.psycopg2Connection = self.connection_wrapper_read.psycopg2Connection
         self.connection_wrapper_write.db_source          = self.connection_wrapper_read.db_source
-        
+
         self.connection_wrapper_write.openConnection(db_connection)
 
         # Database connection has failed.
         if self.connection_wrapper_read.isValid() == False or self.connection_wrapper_write.isValid() == False:
-            print "No database connection established."
+            print("No database connection established.")
             return
 
         # Database connection success.
         table_map = project_table_map()
-        
-        self.dlg = event_dialog.EventDialog(self.iface.mainWindow(),
-                                            self.connection_wrapper_read,
-                                            self.connection_wrapper_write,
-                                            self.iface.mapCanvas(),
-                                            project_audit_table(),
-                                            replay_function = project_replay_function(),
-                                            table_map = table_map,
-                                            selected_layer_id = layer_id,
-                                            selected_feature_id = feature_id)
-                                            
+
+        self.dlg = EventDialog(self.iface.mainWindow(),
+                               self.connection_wrapper_read,
+                               self.connection_wrapper_write,
+                               self.iface.mapCanvas(),
+                               project_audit_table(),
+                               replay_function = project_replay_function(),
+                               table_map = table_map,
+                               selected_layer_id = layer_id,
+                               selected_feature_id = feature_id)
+
         # Populate dialog & catch error if any.
         try:
             self.dlg.populate()
-            
+
         except Error as e:
             QMessageBox.critical(None, "Configuration problem", "Database configuration is invalid, please check the project configuration")
             r = self.onConfigure()
-            
+
             # Retry if needed.
             if r == 1:
                 self.connection_wrapper_read.closeConnection()
                 self.connection_wrapper_write.closeConnection()
                 self.onListEvents(layer_id, feature_id)
-            
+
             return
-        
+
         self.dlg.show()
 
     def onConfigure(self):
@@ -160,14 +160,14 @@ class Plugin():
         db_connection = database_connection_string()
         audit_table = project_audit_table()
         replay_function = project_replay_function()
-        self.config_dlg = config_dialog.ConfigDialog(self.iface.mainWindow(), db_connection, audit_table, table_map, replay_function)
+        self.config_dlg = ConfigDialog(self.iface.mainWindow(), db_connection, audit_table, table_map, replay_function)
         r = self.config_dlg.exec_()
-        
+
         if r == 1:
             # save to the project
             set_database_connection_string(self.config_dlg.db_connection())
             set_project_table_map(self.config_dlg.table_map())
             set_project_audit_table(self.config_dlg.audit_table())
             set_project_replay_function(self.config_dlg.replay_function())
-            
+
         return r

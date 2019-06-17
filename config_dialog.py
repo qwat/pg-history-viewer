@@ -18,14 +18,15 @@
 # -*- coding: utf-8 -*-
 import os
 
-from PyQt4 import uic
-from PyQt4.QtCore import QSettings, QPoint
-from PyQt4.QtGui import QDialog, QMessageBox, QMenu, QIcon
+from PyQt5 import uic
+from PyQt5.QtCore import QSettings, QPoint
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QDialog, QMessageBox, QMenu
 
-from qgis.core import QgsProject, QgsLayerTreeModel, QgsDataSourceURI
+from qgis.core import QgsProject, QgsLayerTreeModel, QgsDataSourceUri
 from qgis.gui import QgsLayerTreeView
 
-import connection_wrapper
+from .connection_wrapper import ConnectionWrapper
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'config.ui'))
 
@@ -40,10 +41,10 @@ class ConfigDialog(QDialog, FORM_CLASS):
         self.reloadBtn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'repeat.svg')))
 
         self._table_map = table_map
-        
+
         # Create database connection wrapper.
         # Disabled transaction group.
-        self.connection_wrapper = connection_wrapper.ConnectionWrapper()
+        self.connection_wrapper = ConnectionWrapper()
         self.connection_wrapper.disableTransactionGroup(True)
 
         self.reloadBtn.clicked.connect(self.onDatabaseChanged)
@@ -59,21 +60,21 @@ class ConfigDialog(QDialog, FORM_CLASS):
                 self.replayFunctionChk.setChecked(True)
 
         self.tables = None
-        
+
     def sslModeToString(self, mode):
-        sslMode = QgsDataSourceURI.SSLmode(mode)
-        
-        if sslMode == int(QgsDataSourceURI.SSLdisable):
+        sslMode = QgsDataSourceUri.SSLmode(mode)
+
+        if sslMode == int(QgsDataSourceUri.SSLdisable):
             return "disable"
-        if sslMode == int(QgsDataSourceURI.SSLallow):
+        if sslMode == int(QgsDataSourceUri.SSLallow):
             return "allow"
-        if sslMode == int(QgsDataSourceURI.SSLrequire):
+        if sslMode == int(QgsDataSourceUri.SSLrequire):
             return "require"
-        if sslMode == int(QgsDataSourceURI.SSLverifyCA):
+        if sslMode == int(QgsDataSourceUri.SSLverifyCA):
             return "verify-ca"
-        if sslMode == int(QgsDataSourceURI.SSLverifyFull):
+        if sslMode == int(QgsDataSourceUri.SSLverifyFull):
             return "verify-full"
-        
+
         # Default empty value: SSLprefer.
         return ""
 
@@ -91,13 +92,13 @@ class ConfigDialog(QDialog, FORM_CLASS):
                 # Strings attributes.
                 if s.value(v) and k != "sslmode":
                     cstring += k + "=" + s.value(v) + " "
-                
+
                 # Enum attributes (Ssl mode).
                 elif s.value(v) and k == "sslmode":
                     mode = self.sslModeToString(s.value(v))
                     if mode != "":
                         cstring += k + "=" + mode + " "
-                    
+
             connections[g] = cstring
             s.endGroup()
 
@@ -114,11 +115,11 @@ class ConfigDialog(QDialog, FORM_CLASS):
 
     def onDatabaseChanged(self):
         dbparams = self.dbConnectionText.text()
-        
+
         # Clear ui.
         self.auditTableCombo.clear()
         self.replayFunctionCombo.clear()
-        
+
         # Connect to database.
         self.connection_wrapper.openConnection(dbparams)
         if self.connection_wrapper.isValid() == False:
@@ -128,13 +129,13 @@ class ConfigDialog(QDialog, FORM_CLASS):
         cur = self.connection_wrapper.cursor()
         if cur == None:
             return
-        
+
         # populate tables
         q = "SELECT table_schema ,table_name FROM information_schema.tables" \
             " where table_schema not in ('pg_catalog', 'information_schema') order by table_schema, table_name"
-            
+
         cur.execute(q)
-        
+
         for r in cur.fetchall():
             t = r[0] + "." + r[1]
             self.auditTableCombo.addItem(t)
@@ -144,9 +145,9 @@ class ConfigDialog(QDialog, FORM_CLASS):
             "routine_schema not in ('pg_catalog', 'information_schema') " \
             "and data_type = 'void' " \
             "and substr(routine_name, 1, 1) != '_'"
-            
+
         cur.execute(q)
-        
+
         for r in cur.fetchall():
             t = r[0] + "." + r[1]
             self.replayFunctionCombo.addItem(t)
