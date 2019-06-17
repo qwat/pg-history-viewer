@@ -24,9 +24,15 @@ from .error_dialog import ErrorDialog
 from PyQt5 import QtGui, uic
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
-from PyQt5.QtWidgets import QDialog
+from PyQt5.QtWidgets import (QDialog,
+                             QVBoxLayout,
+                             QHBoxLayout,
+                             QLabel,
+                             QSpacerItem,
+                             QSizePolicy,
+                             QHeaderView)
 
-from qgis.core import QgsGeometry, QgsDataSourceUri
+from qgis.core import QgsGeometry, QgsDataSourceUri, QgsProject
 from qgis.gui import QgsRubberBand, QgsMapCanvas
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
@@ -132,13 +138,13 @@ class GeometryDisplayer:
         # main rubber
         self.rubber1 = QgsRubberBand(self.canvas)
         self.rubber1.setWidth(2)
-        self.rubber1.setBorderColor(self.newGeometryColor())
+        self.rubber1.setStrokeColor(self.newGeometryColor())
         self.rubber1.setFillColor(self.newGeometryColor())
 
         # old geometry rubber
         self.rubber2 = QgsRubberBand(self.canvas)
         self.rubber2.setWidth(2)
-        self.rubber2.setBorderColor(self.oldGeometryColor())
+        self.rubber2.setStrokeColor(self.oldGeometryColor())
         self.rubber2.setFillColor(self.oldGeometryColor())
 
     def reset(self):
@@ -213,8 +219,8 @@ class EventDialog(QDialog, FORM_CLASS):
         self.replay_function = replay_function
 
         # Watch for layer added or removed for replay button state update.
-        QgsMapLayerRegistry.instance().layersRemoved.connect(self.updateReplayButtonState)
-        QgsMapLayerRegistry.instance().layersAdded.connect(self.updateReplayButtonState)
+        QgsProject.instance().layersRemoved.connect(self.updateReplayButtonState)
+        QgsProject.instance().layersAdded.connect(self.updateReplayButtonState)
 
         # Register all current layers.
         self.updateReplayButtonState()
@@ -227,7 +233,7 @@ class EventDialog(QDialog, FORM_CLASS):
         # populate layer combo
         layer_idx = None
         for i, layer_id in enumerate(self.table_map.keys()):
-            l = QgsMapLayerRegistry.instance().mapLayer( layer_id )
+            l = QgsProject.instance().mapLayer( layer_id )
             if l is None:
                 continue
             print(layer_id, selected_layer_id)
@@ -305,6 +311,7 @@ class EventDialog(QDialog, FORM_CLASS):
         return QDialog.done(self, status)
 
     def populate(self):
+        from qgis.core import QgsMessageLog
         wheres = []
 
         # filter by selected layer/table
@@ -369,7 +376,8 @@ class EventDialog(QDialog, FORM_CLASS):
 
         self.eventTable.selectionModel().currentRowChanged.connect(self.onEventSelection)
 
-        self.eventTable.horizontalHeader().setResizeMode(QHeaderView.Interactive)
+        self.eventTable.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+
 
     def updateReplayButton(self):
         self.replayButton.setEnabled(False)
@@ -564,7 +572,7 @@ class EventDialog(QDialog, FORM_CLASS):
         self.editableLayerObject = None
 
         # Get all layers.
-        layers = QgsMapLayerRegistry.instance().mapLayers()
+        layers = QgsProject.instance().mapLayers()
 
         self.replayEnabled = True
 

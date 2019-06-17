@@ -62,17 +62,17 @@ class ConfigDialog(QDialog, FORM_CLASS):
         self.tables = None
 
     def sslModeToString(self, mode):
-        sslMode = QgsDataSourceUri.SSLmode(mode)
+        sslMode = QgsDataSourceUri.decodeSslMode(mode)
 
-        if sslMode == int(QgsDataSourceUri.SSLdisable):
+        if sslMode == int(QgsDataSourceUri.SslDisable):
             return "disable"
-        if sslMode == int(QgsDataSourceUri.SSLallow):
+        if sslMode == int(QgsDataSourceUri.SslAllow):
             return "allow"
-        if sslMode == int(QgsDataSourceUri.SSLrequire):
+        if sslMode == int(QgsDataSourceUri.SslRequire):
             return "require"
-        if sslMode == int(QgsDataSourceUri.SSLverifyCA):
+        if sslMode == int(QgsDataSourceUri.SslVerifyCa):
             return "verify-ca"
-        if sslMode == int(QgsDataSourceUri.SSLverifyFull):
+        if sslMode == int(QgsDataSourceUri.SslVerifyFull):
             return "verify-full"
 
         # Default empty value: SSLprefer.
