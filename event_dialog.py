@@ -28,24 +28,26 @@ from PyQt5.QtWidgets import (QDialog,
                              QVBoxLayout,
                              QHBoxLayout,
                              QLabel,
+                             QTableWidgetItem,
                              QSpacerItem,
                              QSizePolicy,
                              QHeaderView)
 
-from qgis.core import QgsGeometry, QgsDataSourceUri, QgsProject
+from qgis.core import QgsGeometry, QgsDataSourceUri, QgsProject, QgsMapLayer
 from qgis.gui import QgsRubberBand, QgsMapCanvas
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'event_dialog.ui'))
 
 import re
+import binascii
 
 # Convert a string representing a hstore from psycopg2 to a Python dict
 kv_re = re.compile('"(\w+)"=>(NULL|""|".*?[^\\\\]")(?:, |$)')
 def parse_hstore(hstore_str):
     if hstore_str is None:
         return {}
-    return dict([(m.group(1), None if m.group(2) == 'NULL' else m.group(2).replace('\\"', '"')[1:-1]) for m in re.finditer(kv_re, hstore_str.decode('utf8'))])
+    return dict([(m.group(1), None if m.group(2) == 'NULL' else m.group(2).replace('\\"', '"')[1:-1]) for m in re.finditer(kv_re, hstore_str)])
 
 def ewkb_to_geom(ewkb_str):
     if ewkb_str is None:
@@ -58,7 +60,7 @@ def ewkb_to_geom(ewkb_str):
         header = header[:6] + "%X" % (int(header[6], 16) ^ 2) + header[7]
         # remove srid
         ewkb_str = ewkb_str[:2] + header + ewkb_str[18:]
-    w = ewkb_str.decode('hex')
+    w = binascii.unhexlify(ewkb_str)
     g = QgsGeometry()
     g.fromWkb(w)
     return g
@@ -260,7 +262,7 @@ class EventDialog(QDialog, FORM_CLASS):
         self.vbox.setContentsMargins(margins)
         self.inner_canvas = QgsMapCanvas()
         # copy layer set
-        self.inner_canvas.setLayers([QgsMapLayer(l) for l in self.map_canvas.layers()])
+        self.inner_canvas.setLayers(self.map_canvas.layers())
         self.inner_canvas.setExtent(self.map_canvas.extent())
         self.geometryGroup.setLayout(self.vbox)
         self.geometryGroup.hide()
@@ -424,7 +426,7 @@ class EventDialog(QDialog, FORM_CLASS):
             self.dataTable.setColumnCount(2)
             self.dataTable.setHorizontalHeaderLabels(["Column", "Value"])
             j = 0
-            for k, v in data.iteritems():
+            for k, v in data.items():
                 if len(gcolumns) > 0 and k == gcolumns[0]:
                     self.displayGeometry(ewkb_to_geom(v))
                     continue
@@ -442,7 +444,7 @@ class EventDialog(QDialog, FORM_CLASS):
             self.dataTable.setHorizontalHeaderLabels(["Column", "Old value", "New value"])
             changed_fields = self.eventModel.changed_fields(i)
             j = 0
-            for k, v in data.iteritems():
+            for k, v in data.items():
                 if len(gcolumns) > 0 and k == gcolumns[0]:
                     w = changed_fields.get(k)
                     if w is not None:
