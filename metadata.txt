@@ -13,5 +13,5 @@ experimental=False
 icon=icons/qaudit-64.png
 tags=history,audit,postgresql,log,replay
 homepage=https://github.com/qwat/pg-history-viewer
-tracker=https://github.com/qwat/pg-history-viewer
+tracker=https://github.com/qwat/pg-history-viewer/issues
 repository=https://github.com/qwat/pg-history-viewer
