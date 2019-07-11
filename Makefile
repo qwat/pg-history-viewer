@@ -2,11 +2,11 @@
 
 PLUGINNAME = pg_history_viewer
 
-PY_FILES = main.py __init__.py event_dialog.py config_dialog.py
+PY_FILES = main.py __init__.py event_dialog.py config_dialog.py error_dialog.py connection_wrapper.py credentials_dialog.py
 
-EXTRAS = metadata.txt icons/*.png icons/*.svg
+EXTRAS = metadata.txt icons
 
-UI_FILES = event_dialog.ui config.ui
+UI_FILES = event_dialog.ui config.ui error_dialog.ui credentials_dialog.ui
 
 VERSION=$(shell grep "version=" metadata.txt | cut -d'=' -f 2)
 
@@ -22,7 +22,7 @@ deploy: transcompile
 	mkdir -p $(PLUGINDIR)
 	cp -vf $(PY_FILES) $(PLUGINDIR)
 	cp -vf $(UI_FILES) $(PLUGINDIR)
-	cp --parents -vfRa $(EXTRAS) $(PLUGINDIR)
+	cp -p -vfRa $(EXTRAS) $(PLUGINDIR)
 
 # The zip target deploys the plugin and creates a zip file with the deployed
 # content. You can then upload the zip file on http://plugins.qgis.org
@@ -34,7 +34,7 @@ zip: deploy
 # transup
 # update .ts translation files
 transup:
-	pylupdate4 Makefile
+	pylupdate5 Makefile
 
 # transcompile
 # compile translation files into .qm binary format
