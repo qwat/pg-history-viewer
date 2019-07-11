@@ -18,9 +18,10 @@
 # -*- coding: utf-8 -*-
 import os
 
-from PyQt4 import uic
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5 import uic
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import QDialog
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'credentials_dialog.ui'))
 
@@ -28,52 +29,52 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'credenti
 class CredentialsDialog(QDialog, FORM_CLASS):
     def setErrorText(self, text):
         self.errorText.setText(text)
-    
+
     def setDomainText(self, text):
         self.domainText.setText(text)
-        
+
     def setUserText(self, text):
         self.userText.setText(text)
-        
+
     def setPasswordText(self, text):
         self.passwordText.setText(text)
-        
+
     def getUserText(self):
         return self.userText.text()
-        
+
     def getPasswordText(self):
         return self.passwordText.text()
-        
+
     def hasUserCanceled(self):
         return self.userHasCancel
-    
+
     #
     # Internal members.
     #
     userHasCancel = False
-    
+
     def __init__(self, parent):
         super(CredentialsDialog, self).__init__(parent)
         self.setupUi(self)
-        
+
         self.retryButton.clicked.connect(self.onValidation)
         self.cancelButton.clicked.connect(self.onCancel)
-        
+
     def onValidation(self):
         self.close()
         self.userHasCancel = False
-        
+
     def onCancel(self):
         self.userHasCancel = True
 
         self.close()
-        
+
     def closeEvent(self, event):
         self.userHasCancel = True
-            
+
     def keyPressEvent(self, event):
         if not event.key() == Qt.Key_Escape:
             super(QDialog, self).keyPressEvent(event)
-        
+
         else:
             self.onCancel()

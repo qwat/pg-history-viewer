@@ -5,9 +5,9 @@ def description():
 def version():
     return u"1.0"
 def qgisMinimumVersion():
-    return u"2.12"
+    return u"3.4"
 def qgisMaximumVersion():
     return u"9.99"
 def classFactory(iface):
-    from main import Plugin
+    from .main import Plugin
     return Plugin(iface)

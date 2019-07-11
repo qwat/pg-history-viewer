@@ -18,9 +18,10 @@
 # -*- coding: utf-8 -*-
 import os
 
-from PyQt4 import uic
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5 import uic
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import QDialog
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'error_dialog.ui'))
@@ -29,14 +30,14 @@ class ErrorDialog(QDialog, FORM_CLASS):
     def __init__(self, parent):
         super(ErrorDialog, self).__init__(parent)
         self.setupUi(self)
-        
+
         self.closeButton.clicked.connect(self.deleteLater)
-        
+
     def setErrorText(self, text):
         self.errorText.setText(text)
-    
+
     def setDetailsText(self, text):
         self.detailsText.setText(text)
-        
+
     def setContextText(self, text):
         self.contextText.setPlainText(text)
