@@ -40,7 +40,6 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'event_dialog.ui'))
 
 import re
-import binascii
 
 # Convert a string representing a hstore from psycopg2 to a Python dict
 kv_re = re.compile('"(\w+)"=>(NULL|""|".*?[^\\\\]")(?:, |$)')
@@ -60,7 +59,7 @@ def ewkb_to_geom(ewkb_str):
         header = header[:6] + "%X" % (int(header[6], 16) ^ 2) + header[7]
         # remove srid
         ewkb_str = ewkb_str[:2] + header + ewkb_str[18:]
-    w = binascii.unhexlify(ewkb_str)
+    w = bytes.fromhex(ewkb_str)
     g = QgsGeometry()
     g.fromWkb(w)
     return g
