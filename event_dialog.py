@@ -90,7 +90,7 @@ class EventModel(QAbstractTableModel):
                 self.__data.append(row)
 
         row = self.__data[idx.row()]
-        event_id, tstamp, table_name, action, application, row_data, changed_fields = row
+        event_id, tstamp, table_name, action, application, user, row_data, changed_fields = row
         if idx.column() == 0:
             if role == Qt.DisplayRole:
                 return tstamp.strftime("%x - %X")
@@ -112,24 +112,27 @@ class EventModel(QAbstractTableModel):
         elif idx.column() == 3:
             if role == Qt.DisplayRole:
                 return application
+        elif idx.column() == 4:
+            if role == Qt.DisplayRole:
+                return user
         return None
 
     def row_data(self, row):
-        return parse_hstore(self.__data[row][5])
+        return parse_hstore(self.__data[row][6])
 
     def changed_fields(self, row):
-        return parse_hstore(self.__data[row][6])
+        return parse_hstore(self.__data[row][7])
 
     def headerData(self, section, orientation, role):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
-            return ("Date", "Table", "Action", "Application")[section]
+            return ("Date", "Table", "Action", "Application", "User")[section]
         return QAbstractTableModel.headerData(self, section, orientation, role)
 
     def rowCount(self, parent):
         return self.cursor.rowcount
 
     def columnCount(self, parent):
-        return 4
+        return 5
 
 class GeometryDisplayer:
 
@@ -356,7 +359,7 @@ class EventDialog(QDialog, FORM_CLASS):
             wheres.append("action_tstamp_clk < '{}'".format(dt.toString(Qt.ISODate)))
 
         # base query
-        q = "SELECT event_id, action_tstamp_clk, schema_name || '.' || table_name, action, application_name, row_data, changed_fields FROM {} l".format(self.audit_table)
+        q = "SELECT event_id, action_tstamp_clk, schema_name || '.' || table_name, action, application_name, session_user_name, row_data, changed_fields FROM {} l".format(self.audit_table)
         # where clause
         if len(wheres) > 0:
             q += " WHERE " + " AND ".join(wheres)
