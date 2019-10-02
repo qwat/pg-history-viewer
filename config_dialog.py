@@ -28,19 +28,28 @@ from qgis.gui import QgsLayerTreeView
 
 from .connection_wrapper import ConnectionWrapper
 
-FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'config.ui'))
+FORM_CLASS, _ = uic.loadUiType(os.path.join(
+    os.path.dirname(__file__), 'config.ui'))
+
 
 class ConfigDialog(QDialog, FORM_CLASS):
-    def __init__(self, parent, db_connection = "", audit_table = "", table_map = {}, replay_function = None):
+    def __init__(self, parent, db_connection="", audit_table="", table_map={}, replay_function=None):
         """Constructor.
         @param parent parent widget
         """
         super(ConfigDialog, self).__init__(parent)
         self.setupUi(self)
 
-        self.reloadBtn.setIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'repeat.svg')))
+        self.reloadBtn.setIcon(
+            QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'repeat.svg')))
 
         self._table_map = table_map
+
+        self.tree_group = QgsProject.instance().layerTreeRoot().clone()
+        self.tree_model = QgsLayerTreeModel(self.tree_group)
+        self.treeView.setModel(self.tree_model)
+
+        self.treeView.currentLayerChanged.connect(self.onLayerChanged)
 
         # Create database connection wrapper.
         # Disabled transaction group.
@@ -49,14 +58,17 @@ class ConfigDialog(QDialog, FORM_CLASS):
 
         self.reloadBtn.clicked.connect(self.onDatabaseChanged)
         self.dbConnectionBtn.clicked.connect(self.onBrowseConnection)
+        self.tableCombo.currentIndexChanged.connect(self.onTableEdit)
 
         if db_connection:
             self.dbConnectionText.setText(db_connection)
             self.reloadBtn.click()
             if audit_table:
-                self.auditTableCombo.setCurrentIndex(self.auditTableCombo.findText(audit_table))
+                self.auditTableCombo.setCurrentIndex(
+                    self.auditTableCombo.findText(audit_table))
             if replay_function:
-                self.replayFunctionCombo.setCurrentIndex(self.replayFunctionCombo.findText(replay_function))
+                self.replayFunctionCombo.setCurrentIndex(
+                    self.replayFunctionCombo.findText(replay_function))
                 self.replayFunctionChk.setChecked(True)
 
         self.tables = None
@@ -84,7 +96,8 @@ class ConfigDialog(QDialog, FORM_CLASS):
         s.beginGroup("/PostgreSQL/connections")
         children = s.childGroups()
         connections = {}
-        map = {"dbname":"database", "host":"host", "port":"port", "service":"service", "password":"password", "user":"username", "sslmode": "sslmode"}
+        map = {"dbname": "database", "host": "host", "port": "port", "service": "service",
+               "password": "password", "user": "username", "sslmode": "sslmode"}
         for g in children:
             s.beginGroup(g)
             cstring = ""
@@ -111,7 +124,7 @@ class ConfigDialog(QDialog, FORM_CLASS):
             self.reloadBtn.click()
 
         menu.triggered.connect(onMenu)
-        menu.exec_(self.dbConnectionBtn.mapToGlobal(QPoint(0,0)))
+        menu.exec_(self.dbConnectionBtn.mapToGlobal(QPoint(0, 0)))
 
     def onDatabaseChanged(self):
         dbparams = self.dbConnectionText.text()
@@ -136,9 +149,13 @@ class ConfigDialog(QDialog, FORM_CLASS):
 
         cur.execute(q)
 
+        self.tableCombo.clear()
+        self.tableCombo.addItem("")
+
         for r in cur.fetchall():
             t = r[0] + "." + r[1]
             self.auditTableCombo.addItem(t)
+            self.tableCombo.addItem(t)
 
         # populate functions
         q = "select routine_schema, routine_name from information_schema.routines where " \
@@ -151,6 +168,22 @@ class ConfigDialog(QDialog, FORM_CLASS):
         for r in cur.fetchall():
             t = r[0] + "." + r[1]
             self.replayFunctionCombo.addItem(t)
+
+    def onLayerChanged(self, layer):
+        if layer is None:
+            return
+        table_name = self._table_map.get(layer.id())
+        if table_name is not None:
+            idx = self.tableCombo.findText(table_name)
+            self.tableCombo.setCurrentIndex(idx)
+        else:
+            self.tableCombo.setCurrentIndex(0)
+
+    def onTableEdit(self, idx):
+        table_name = self.tableCombo.itemText(idx)
+        current = self.treeView.currentLayer()
+        if current is not None:
+            self._table_map[current.id()] = table_name
 
     def table_map(self):
         return self._table_map

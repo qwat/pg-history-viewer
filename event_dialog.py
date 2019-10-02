@@ -16,6 +16,7 @@
  */
 """
 # -*- coding: utf-8 -*-
+import re
 import os
 from psycopg2 import Error
 
@@ -39,14 +40,16 @@ from qgis.gui import QgsRubberBand, QgsMapCanvas
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'event_dialog.ui'))
 
-import re
 
 # Convert a string representing a hstore from psycopg2 to a Python dict
 kv_re = re.compile('"(\w+)"=>(NULL|""|".*?[^\\\\]")(?:, |$)')
+
+
 def parse_hstore(hstore_str):
     if hstore_str is None:
         return {}
     return dict([(m.group(1), None if m.group(2) == 'NULL' else m.group(2).replace('\\"', '"')[1:-1]) for m in re.finditer(kv_re, hstore_str)])
+
 
 def ewkb_to_geom(ewkb_str):
     if ewkb_str is None:
@@ -64,12 +67,15 @@ def ewkb_to_geom(ewkb_str):
     g.fromWkb(w)
     return g
 
+
 def reset_table_widget(table_widget):
     table_widget.clearContents()
     for r in range(table_widget.rowCount() - 1, -1, -1):
         table_widget.removeRow(r)
 
 # Incremental loader
+
+
 class EventModel(QAbstractTableModel):
     def __init__(self, cursor):
         QAbstractItemModel.__init__(self)
@@ -80,8 +86,8 @@ class EventModel(QAbstractTableModel):
     def flags(self, idx):
         return Qt.NoItemFlags | Qt.ItemIsSelectable | Qt.ItemIsEnabled
 
-    def data(self, idx, role = Qt.DisplayRole):
-        #print idx.column(), role
+    def data(self, idx, role=Qt.DisplayRole):
+        # print idx.column(), role
         if idx.row() >= len(self.__data):
             rc = len(self.__data)
             # fetch more
@@ -134,9 +140,10 @@ class EventModel(QAbstractTableModel):
     def columnCount(self, parent):
         return 5
 
+
 class GeometryDisplayer:
 
-    def __init__(self, canvas ):
+    def __init__(self, canvas):
         self.canvas = canvas
 
         # main rubber
@@ -161,7 +168,7 @@ class GeometryDisplayer:
     def newGeometryColor(self):
         return QColor("#00f")
 
-    def display(self, geom1, geom2 = None):
+    def display(self, geom1, geom2=None):
         """
         @param geom1 base geometry (old geometry for an update)
         @param geom2 new geometry for an update
@@ -177,6 +184,7 @@ class GeometryDisplayer:
         bbox.scale(1.5)
         self.canvas.setExtent(bbox)
 
+
 class EventDialog(QDialog, FORM_CLASS):
 
     # Editable layer to alter edition mode (transaction group).
@@ -190,7 +198,7 @@ class EventDialog(QDialog, FORM_CLASS):
     #
     catchLayerModifications = True
 
-    def __init__(self, parent, connection_wrapper_read, connection_wrapper_write, map_canvas, audit_table, replay_function = None, table_map = {}, selected_layer_id = None, selected_feature_id = None):
+    def __init__(self, parent, connection_wrapper_read, connection_wrapper_write, map_canvas, audit_table, replay_function=None, table_map={}, selected_layer_id=None, selected_feature_id=None):
         """Constructor.
         @param parent parent widget
         @param connection_wrapper_read connection wrapper (dbapi2)
@@ -211,11 +219,13 @@ class EventDialog(QDialog, FORM_CLASS):
         self.setupUi(self)
 
         # reload button icons
-        self.searchButton.setIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'mActionFilter2.svg')))
-        self.replayButton.setIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'mIconWarn.png')))
+        self.searchButton.setIcon(
+            QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'mActionFilter2.svg')))
+        self.replayButton.setIcon(
+            QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'mIconWarn.png')))
 
         # Store connections.
-        self.connection_wrapper_read  = connection_wrapper_read
+        self.connection_wrapper_read = connection_wrapper_read
         self.connection_wrapper_write = connection_wrapper_write
 
         self.map_canvas = map_canvas
@@ -237,7 +247,7 @@ class EventDialog(QDialog, FORM_CLASS):
         # populate layer combo
         layer_idx = None
         for i, layer_id in enumerate(self.table_map.keys()):
-            l = QgsProject.instance().mapLayer( layer_id )
+            l = QgsProject.instance().mapLayer(layer_id)
             if l is None:
                 continue
             print(layer_id, selected_layer_id)
@@ -269,7 +279,7 @@ class EventDialog(QDialog, FORM_CLASS):
         self.geometryGroup.setLayout(self.vbox)
         self.geometryGroup.hide()
 
-        self.hsplitter.setSizes([100,100])
+        self.hsplitter.setSizes([100, 100])
 
         self.displayer = GeometryDisplayer(self.map_canvas)
         self.inner_displayer = GeometryDisplayer(self.inner_canvas)
@@ -284,15 +294,19 @@ class EventDialog(QDialog, FORM_CLASS):
 
         self.oldGeometryLabel = QLabel()
         self.oldGeometryLabel.setText("------- old geometry")
-        self.oldGeometryLabel.setStyleSheet("color: " + self.displayer.oldGeometryColor().name())
+        self.oldGeometryLabel.setStyleSheet(
+            "color: " + self.displayer.oldGeometryColor().name())
 
         self.newGeometryLabel = QLabel()
-        self.newGeometryLabel.setText("------- new geometry (will be restored when replaying event)")
-        self.newGeometryLabel.setStyleSheet("color: " + self.displayer.newGeometryColor().name())
+        self.newGeometryLabel.setText(
+            "------- new geometry (will be restored when replaying event)")
+        self.newGeometryLabel.setStyleSheet(
+            "color: " + self.displayer.newGeometryColor().name())
 
         self.hbox.addWidget(self.oldGeometryLabel)
         self.hbox.addWidget(self.newGeometryLabel)
-        self.hbox.addItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Fixed))
+        self.hbox.addItem(QSpacerItem(
+            20, 20, QSizePolicy.Expanding, QSizePolicy.Fixed))
 
         self.vbox.addLayout(self.hbox)
         self.vbox.addWidget(self.inner_canvas)
@@ -337,8 +351,10 @@ class EventDialog(QDialog, FORM_CLASS):
         # filter by data
         if self.dataChck.isChecked():
             v = self.dataEdit.text()
-            v = v.replace('\\', '\\\\').replace("'", "''").replace('%', '\\%').replace('_', '\\_')
-            wheres.append("(SELECT string_agg(v,' ') FROM svals(row_data) as v) ILIKE '%{}%'".format(v))
+            v = v.replace('\\', '\\\\').replace(
+                "'", "''").replace('%', '\\%').replace('_', '\\_')
+            wheres.append(
+                "(SELECT string_agg(v,' ') FROM svals(row_data) as v) ILIKE '%{}%'".format(v))
 
         # filter by event type
         types = []
@@ -353,13 +369,16 @@ class EventDialog(QDialog, FORM_CLASS):
         # filter by dates
         if self.afterChck.isChecked():
             dt = self.afterDt.dateTime()
-            wheres.append("action_tstamp_clk > '{}'".format(dt.toString(Qt.ISODate)))
+            wheres.append("action_tstamp_clk > '{}'".format(
+                dt.toString(Qt.ISODate)))
         if self.beforeChck.isChecked():
             dt = self.beforeDt.dateTime()
-            wheres.append("action_tstamp_clk < '{}'".format(dt.toString(Qt.ISODate)))
+            wheres.append("action_tstamp_clk < '{}'".format(
+                dt.toString(Qt.ISODate)))
 
         # base query
-        q = "SELECT event_id, action_tstamp_clk, schema_name || '.' || table_name, action, application_name, session_user_name, row_data, changed_fields FROM {} l".format(self.audit_table)
+        q = "SELECT event_id, action_tstamp_clk, schema_name || '.' || table_name, action, application_name, session_user_name, row_data, changed_fields FROM {} l".format(
+            self.audit_table)
         # where clause
         if len(wheres) > 0:
             q += " WHERE " + " AND ".join(wheres)
@@ -382,10 +401,10 @@ class EventDialog(QDialog, FORM_CLASS):
 
         self.eventTable.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
 
-
     def updateReplayButton(self):
         self.replayButton.setEnabled(False)
-        self.replayButton.setToolTip("No replay function or layer is in edition mode: replay action is not available.")
+        self.replayButton.setToolTip(
+            "No replay function or layer is in edition mode: replay action is not available.")
 
         if self.replay_function and self.replayEnabled == True:
             self.replayButton.setEnabled(True)
@@ -418,7 +437,8 @@ class EventDialog(QDialog, FORM_CLASS):
                 print("Cursor creation has failed")
                 return
 
-            q = "SELECT f_geometry_column FROM geometry_columns WHERE f_table_schema='{}' AND f_table_name='{}'".format(schema, table)
+            q = "SELECT f_geometry_column FROM geometry_columns WHERE f_table_schema='{}' AND f_table_name='{}'".format(
+                schema, table)
             cur.execute(q)
             self.geometry_columns[table_name] = [r[0] for r in cur.fetchall()]
             gcolumns = self.geometry_columns[table_name]
@@ -443,7 +463,8 @@ class EventDialog(QDialog, FORM_CLASS):
         # update
         elif action == 'U':
             self.dataTable.setColumnCount(3)
-            self.dataTable.setHorizontalHeaderLabels(["Column", "Old value", "New value"])
+            self.dataTable.setHorizontalHeaderLabels(
+                ["Column", "Old value", "New value"])
             changed_fields = self.eventModel.changed_fields(i)
             j = 0
             for k, v in data.items():
@@ -479,7 +500,7 @@ class EventDialog(QDialog, FORM_CLASS):
         self.displayer.reset()
         self.inner_displayer.reset()
 
-    def displayGeometry(self, geom, geom2 = None):
+    def displayGeometry(self, geom, geom2=None):
         self.inner_displayer.display(geom, geom2)
         self.geometryGroup.show()
 
@@ -491,7 +512,8 @@ class EventDialog(QDialog, FORM_CLASS):
         if i == -1:
             return
         # event_id from current selection
-        event_id = self.eventModel.data(self.eventModel.index(i, 0), Qt.UserRole)
+        event_id = self.eventModel.data(
+            self.eventModel.index(i, 0), Qt.UserRole)
 
         error = ""
 
@@ -511,7 +533,8 @@ class EventDialog(QDialog, FORM_CLASS):
 
         if error != "":
             self.error_dlg = ErrorDialog(self)
-            self.error_dlg.setErrorText("An error has occurred during database access.")
+            self.error_dlg.setErrorText(
+                "An error has occurred during database access.")
             self.error_dlg.setContextText(error)
             self.error_dlg.setDetailsText("")
             self.error_dlg.exec_()
@@ -528,7 +551,7 @@ class EventDialog(QDialog, FORM_CLASS):
     def isLayerDatabaseCurrentConnection(self, layer):
         source = layer.source()
 
-        layerUri  = QgsDataSourceUri(source)
+        layerUri = QgsDataSourceUri(source)
         pluginuri = QgsDataSourceUri(self.connection_wrapper_read.db_source)
 
         return self.areConnectionsEquals(layerUri, pluginuri)
@@ -602,8 +625,10 @@ class EventDialog(QDialog, FORM_CLASS):
             # Watch layer edition mode changes.
             if getattr(layer, "beforeEditingStarted", None) != None and getattr(layer, "editingStopped", None) != None:
                 try:
-                    layer.editingStarted.connect(self.layerEditionModeChanged, Qt.UniqueConnection)
-                    layer.editingStopped.connect(self.layerEditionModeChanged, Qt.UniqueConnection)
+                    layer.editingStarted.connect(
+                        self.layerEditionModeChanged, Qt.UniqueConnection)
+                    layer.editingStopped.connect(
+                        self.layerEditionModeChanged, Qt.UniqueConnection)
                 except:
                     pass
 

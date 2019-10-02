@@ -34,6 +34,8 @@ import os
 # In some case transaction group cannot be used. To disable transaction
 # group use disableTransactionGroup().
 # Direct connection allow the use of cursor() for cursor creation.
+
+
 class ConnectionWrapper():
 
     # Disable transaction group.
@@ -161,7 +163,7 @@ class ConnectionWrapper():
 
     # QGis.QgsTransactionGroup database connection.
     qgisTransactionGroupConnection = None
-    qgisTransactionGroupDisabled   = False
+    qgisTransactionGroupDisabled = False
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.closeConnection()
@@ -200,7 +202,8 @@ class ConnectionWrapper():
         uriStr = sourceUri.connectionInfo()
 
         try:
-            print("Getting transactions group for provider ", providerKey, " and database connection: ", uriStr)
+            print("Getting transactions group for provider ",
+                  providerKey, " and database connection: ", uriStr)
             return QgsProject.instance().transactionGroup(providerKey, uriStr)
 
         except:
@@ -233,7 +236,8 @@ class ConnectionWrapper():
 
             # User has validated: get credentials & create single connection again.
             else:
-                db_connection = db_connection + "user='" + self.credDlg.getUserText() + "' password='" + self.credDlg.getPasswordText() + "'"
+                db_connection = db_connection + "user='" + self.credDlg.getUserText() + \
+                    "' password='" + self.credDlg.getPasswordText() + "'"
 
                 return self.createSingleConnection(db_connection)
 

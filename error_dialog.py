@@ -26,6 +26,7 @@ from PyQt5.QtWidgets import QDialog
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'error_dialog.ui'))
 
+
 class ErrorDialog(QDialog, FORM_CLASS):
     def __init__(self, parent):
         super(ErrorDialog, self).__init__(parent)

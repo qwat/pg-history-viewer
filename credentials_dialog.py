@@ -23,9 +23,12 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import QDialog
 
-FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'credentials_dialog.ui'))
+FORM_CLASS, _ = uic.loadUiType(os.path.join(
+    os.path.dirname(__file__), 'credentials_dialog.ui'))
 
 # Display a dialog for user credentials input.
+
+
 class CredentialsDialog(QDialog, FORM_CLASS):
     def setErrorText(self, text):
         self.errorText.setText(text)
