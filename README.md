@@ -21,20 +21,20 @@ The main features are:
 
 Audit trigger functions are well described here [audit trigger table](https://wiki.postgresql.org/wiki/Audit_trigger).
 On the behalf of QWAT's group, new features were added to audit views and replay edits. They are available here:
-https://github.com/Oslandia/audit_trigger. We had to fork unmaintained 2nd Quandrant's source repository https://github.com/2ndQuadrant/audit-trigger. If somehow this repository is revived, please tell us and we'll switch back to it. 
+https://gitlab.com/Oslandia/audit_trigger. We had to fork unmaintained 2nd Quandrant's source repository https://github.com/2ndQuadrant/audit-trigger. If somehow this repository is revived, please tell us and we'll switch back to it. 
 
 To install the trigger functions, download the audit.sql file from there, and execute the sql commands in the script, either from pgadmin or PostgreSQL.
 
 To start logging a table, here 'qwat_dr.annotationline':
 
-`qwat_sys.audit_table('qwat_dr.annotationline');`
+`audit.audit_table('qwat_dr.annotationline');`
 
 or for a view; here 'qwat_od.vw_consumptionzone':
 
-`qwat_sys.audit_view('qwat_od.vw_consumptionzone', 'true'::boolean, '{}'::text[], '{id}'::text[]);`
+`audit.audit_view('qwat_od.vw_consumptionzone', 'true'::boolean, '{}'::text[], '{id}'::text[]);`
 
 
 
 ## QGIS plugin
 
-QGIS plugin can be installed from the QGIS plugin installer or by downloading this source code and unzipping it to your QGIS plugin profile or additional plugin paths. See https://docs.qgis.org/2.14/en/docs/user_manual/plugins/plugins.html
+QGIS plugin can be installed from the QGIS plugin installer or by downloading this source code and unzipping it to your QGIS plugin profile or additional plugin paths. See https://docs.qgis.org/3.10/en/docs/user_manual/plugins/plugins.html
