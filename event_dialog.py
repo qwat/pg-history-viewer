@@ -336,7 +336,13 @@ class EventDialog(QDialog, FORM_CLASS):
         index = self.layerCombo.currentIndex()
         if index > 0:
             lid = self.layerCombo.itemData(index)
-            schema, table = self.table_map[lid].split(".")
+            layer = QgsProject.instance().mapLayer(lid)
+            uri = layer.dataProvider().dataSourceUri()
+            QgsMessageLog.logMessage(uri)
+            # Convert layer uri to schema and table
+            l_sh_tab = re.search(r'table="([^"]+)"\."([^"]+)"', uri)
+            schema = l_sh_tab.group(1)
+            table = l_sh_tab.group(2)
             wheres.append("schema_name = '{}'".format(schema))
             wheres.append("table_name = '{}'".format(table))
 
@@ -344,7 +350,10 @@ class EventDialog(QDialog, FORM_CLASS):
             if len(self.idEdit.text()) > 0:
                 try:
                     id = int(self.idEdit.text())
-                    wheres.append("row_data->'id'='{}'".format(id))
+                    first_field_name = layer.fields().names()[0]
+                    wheres.append("row_data->'{}'='{}'".format(first_field_name,id)) 
+              
+
                 except ValueError:
                     pass
 
