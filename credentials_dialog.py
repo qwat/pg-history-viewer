@@ -15,6 +15,7 @@
  *   License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 """
+
 # -*- coding: utf-8 -*-
 import os
 
@@ -23,8 +24,7 @@ from qgis.PyQt.QtCore import *
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import QDialog
 
-FORM_CLASS, _ = uic.loadUiType(os.path.join(
-    os.path.dirname(__file__), 'credentials_dialog.ui'))
+FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), "credentials_dialog.ui"))
 
 # Display a dialog for user credentials input.
 
@@ -57,7 +57,7 @@ class CredentialsDialog(QDialog, FORM_CLASS):
     userHasCancel = False
 
     def __init__(self, parent):
-        super(CredentialsDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setupUi(self)
 
         self.retryButton.clicked.connect(self.onValidation)

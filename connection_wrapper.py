@@ -15,13 +15,13 @@
  *   License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 """
+
+import psycopg2
+
 # -*- coding: utf-8 -*-
-from qgis.core import QgsTransactionGroup, QgsProject, QgsDataSourceUri
-from psycopg2 import Error
+from qgis.core import QgsDataSourceUri, QgsProject
 
 from .credentials_dialog import CredentialsDialog
-import psycopg2
-import os
 
 # This object contains database connection wrapped for both
 # psycopg2 direct database connection OR QGis transaction group
@@ -36,7 +36,7 @@ import os
 # Direct connection allow the use of cursor() for cursor creation.
 
 
-class ConnectionWrapper():
+class ConnectionWrapper:
 
     # Disable transaction group.
     def disableTransactionGroup(self, disabled):
@@ -202,8 +202,12 @@ class ConnectionWrapper():
         uriStr = sourceUri.connectionInfo()
 
         try:
-            print("Getting transactions group for provider ",
-                  providerKey, " and database connection: ", uriStr)
+            print(
+                "Getting transactions group for provider ",
+                providerKey,
+                " and database connection: ",
+                uriStr,
+            )
             return QgsProject.instance().transactionGroup(providerKey, uriStr)
 
         except:
@@ -236,8 +240,14 @@ class ConnectionWrapper():
 
             # User has validated: get credentials & create single connection again.
             else:
-                db_connection = db_connection + "user='" + self.credDlg.getUserText() + \
-                    "' password='" + self.credDlg.getPasswordText() + "'"
+                db_connection = (
+                    db_connection
+                    + "user='"
+                    + self.credDlg.getUserText()
+                    + "' password='"
+                    + self.credDlg.getPasswordText()
+                    + "'"
+                )
 
                 return self.createSingleConnection(db_connection)
 

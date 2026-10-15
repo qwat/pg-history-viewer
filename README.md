@@ -21,7 +21,7 @@ The main features are:
 
 Audit trigger functions are well described here [audit trigger table](https://wiki.postgresql.org/wiki/Audit_trigger).
 On the behalf of QWAT's group, new features were added to audit views and replay edits. They are available here:
-https://gitlab.com/Oslandia/audit_trigger. We had to fork unmaintained 2nd Quandrant's source repository https://github.com/2ndQuadrant/audit-trigger. If somehow this repository is revived, please tell us and we'll switch back to it. 
+https://gitlab.com/Oslandia/audit_trigger. We had to fork unmaintained 2nd Quandrant's source repository https://github.com/2ndQuadrant/audit-trigger. If somehow this repository is revived, please tell us and we'll switch back to it.
 
 To install the trigger functions, download the audit.sql file from there, and execute the sql commands in the script, either from pgadmin or PostgreSQL.
 

@@ -15,32 +15,26 @@
  *   License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 """
+
 # -*- coding: utf-8 -*-
 import os
 
-# import from __init__
-from . import name as plugin_name
-
-from qgis.PyQt.QtCore import QSettings
+from psycopg2 import Error
+from qgis.core import QgsProject
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QMessageBox
 
-from qgis.core import QgsProject
-
-from psycopg2 import Error
-
-import psycopg2
-
-from .event_dialog import EventDialog
+# import from __init__
+from . import name as plugin_name
 from .config_dialog import ConfigDialog
 from .connection_wrapper import ConnectionWrapper
+from .event_dialog import EventDialog
 
 PLUGIN_PATH = os.path.dirname(__file__)
 
 
 def database_connection_string():
-    db_connection, ok = QgsProject.instance().readEntry(
-        "HistoryViewer", "db_connection", "")
+    db_connection, ok = QgsProject.instance().readEntry("HistoryViewer", "db_connection", "")
     return db_connection
 
 
@@ -49,19 +43,16 @@ def set_database_connection_string(db_connection):
 
 
 def project_audit_table():
-    audit_table, ok = QgsProject.instance().readEntry(
-        "HistoryViewer", "audit_table", "")
+    audit_table, ok = QgsProject.instance().readEntry("HistoryViewer", "audit_table", "")
     return audit_table
 
 
 def set_project_replay_function(replay_function):
-    QgsProject.instance().writeEntry(
-        "HistoryViewer", "replay_function", replay_function)
+    QgsProject.instance().writeEntry("HistoryViewer", "replay_function", replay_function)
 
 
 def project_replay_function():
-    replay_function, ok = QgsProject.instance().readEntry(
-        "HistoryViewer", "replay_function", "")
+    replay_function, ok = QgsProject.instance().readEntry("HistoryViewer", "replay_function", "")
     return replay_function
 
 
@@ -71,19 +62,19 @@ def set_project_audit_table(audit_table):
 
 def project_table_map():
     # get table_map
-    table_map_strs, ok = QgsProject.instance().readListEntry(
-        "HistoryViewer", "table_map", [])
+    table_map_strs, ok = QgsProject.instance().readListEntry("HistoryViewer", "table_map", [])
     # list of "layer_id=table_name" strings
-    table_map = dict([t.split('=') for t in table_map_strs])
+    table_map = dict([t.split("=") for t in table_map_strs])
     return table_map
 
 
 def set_project_table_map(table_map):
-    QgsProject.instance().writeEntry("HistoryViewer", "table_map",
-                                     [k+"="+v for k, v in table_map.items()])
+    QgsProject.instance().writeEntry(
+        "HistoryViewer", "table_map", [k + "=" + v for k, v in table_map.items()]
+    )
 
 
-class Plugin():
+class Plugin:
     def __init__(self, iface):
         self.iface = iface
 
@@ -94,15 +85,17 @@ class Plugin():
         self.connection_wrapper_write = ConnectionWrapper()
 
     def initGui(self):
-        self.listEventsAction = QAction(QIcon(os.path.join(
-            PLUGIN_PATH, "icons", "qaudit-64.png")), u"List events", self.iface.mainWindow())
+        self.listEventsAction = QAction(
+            QIcon(os.path.join(PLUGIN_PATH, "icons", "qaudit-64.png")),
+            "List events",
+            self.iface.mainWindow(),
+        )
         self.listEventsAction.triggered.connect(self.onListEvents)
 
         self.iface.addToolBarIcon(self.listEventsAction)
         self.iface.addPluginToMenu(plugin_name(), self.listEventsAction)
 
-        self.configureAction = QAction(
-            u"Configuration", self.iface.mainWindow())
+        self.configureAction = QAction("Configuration", self.iface.mainWindow())
         self.configureAction.triggered.connect(self.onConfigure)
         self.iface.addPluginToMenu(plugin_name(), self.configureAction)
 
@@ -115,8 +108,11 @@ class Plugin():
         # Get database connection string.
         db_connection = database_connection_string()
         if not db_connection:
-            QMessageBox.critical(None, "Configuration problem",
-                                 "No database configuration has been found, please configure the project")
+            QMessageBox.critical(
+                None,
+                "Configuration problem",
+                "No database configuration has been found, please configure the project",
+            )
             r = self.onConfigure()
 
             # Retry if needed.
@@ -131,36 +127,46 @@ class Plugin():
         self.connection_wrapper_read.openConnection(db_connection)
 
         # Reuse read connection for write direct connection.
-        self.connection_wrapper_write.psycopg2Connection = self.connection_wrapper_read.psycopg2Connection
+        self.connection_wrapper_write.psycopg2Connection = (
+            self.connection_wrapper_read.psycopg2Connection
+        )
         self.connection_wrapper_write.db_source = self.connection_wrapper_read.db_source
 
         self.connection_wrapper_write.openConnection(db_connection)
 
         # Database connection has failed.
-        if self.connection_wrapper_read.isValid() == False or self.connection_wrapper_write.isValid() == False:
+        if (
+            self.connection_wrapper_read.isValid() == False
+            or self.connection_wrapper_write.isValid() == False
+        ):
             print("No database connection established.")
             return
 
         # Database connection success.
         table_map = project_table_map()
 
-        self.dlg = EventDialog(self.iface.mainWindow(),
-                               self.connection_wrapper_read,
-                               self.connection_wrapper_write,
-                               self.iface.mapCanvas(),
-                               project_audit_table(),
-                               replay_function=project_replay_function(),
-                               table_map=table_map,
-                               selected_layer_id=layer_id,
-                               selected_feature_id=feature_id)
+        self.dlg = EventDialog(
+            self.iface.mainWindow(),
+            self.connection_wrapper_read,
+            self.connection_wrapper_write,
+            self.iface.mapCanvas(),
+            project_audit_table(),
+            replay_function=project_replay_function(),
+            table_map=table_map,
+            selected_layer_id=layer_id,
+            selected_feature_id=feature_id,
+        )
 
         # Populate dialog & catch error if any.
         try:
             self.dlg.populate()
 
-        except Error as e:
-            QMessageBox.critical(None, "Configuration problem",
-                                 "Database configuration is invalid, please check the project configuration")
+        except Error:
+            QMessageBox.critical(
+                None,
+                "Configuration problem",
+                "Database configuration is invalid, please check the project configuration",
+            )
             r = self.onConfigure()
 
             # Retry if needed.
@@ -178,8 +184,9 @@ class Plugin():
         db_connection = database_connection_string()
         audit_table = project_audit_table()
         replay_function = project_replay_function()
-        self.config_dlg = ConfigDialog(self.iface.mainWindow(
-        ), db_connection, audit_table, table_map, replay_function)
+        self.config_dlg = ConfigDialog(
+            self.iface.mainWindow(), db_connection, audit_table, table_map, replay_function
+        )
         r = self.config_dlg.exec()
 
         if r == 1:

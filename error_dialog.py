@@ -15,21 +15,19 @@
  *   License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 """
+
 # -*- coding: utf-8 -*-
 import os
 
 from qgis.PyQt import uic
-from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import QDialog
 
-FORM_CLASS, _ = uic.loadUiType(os.path.join(
-    os.path.dirname(__file__), 'error_dialog.ui'))
+FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), "error_dialog.ui"))
 
 
 class ErrorDialog(QDialog, FORM_CLASS):
     def __init__(self, parent):
-        super(ErrorDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setupUi(self)
 
         self.closeButton.clicked.connect(self.deleteLater)
