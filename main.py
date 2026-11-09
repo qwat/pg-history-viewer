@@ -19,7 +19,7 @@
 import os
 
 from psycopg2 import Error
-from qgis.core import QgsProject
+from qgis.core import Qgis, QgsMessageLog, QgsProject
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QMessageBox
 
@@ -148,7 +148,11 @@ class Plugin:
             not self.connection_wrapper_read.isValid()
             or not self.connection_wrapper_write.isValid()
         ):
-            print("No database connection established.")
+            QgsMessageLog.logMessage(
+                "No database connection established.",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
             return
 
         # Database connection success.

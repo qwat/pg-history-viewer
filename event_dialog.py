@@ -436,7 +436,11 @@ class EventDialog(QDialog, FORM_CLASS):
         # Create cursor.
         cur = self.connection_wrapper_read.cursor()
         if cur is None:
-            print("Cannot get cursor for database.")
+            QgsMessageLog.logMessage(
+                "Cannot get cursor for database.",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
             return
 
         cur.execute(q)
@@ -488,7 +492,11 @@ class EventDialog(QDialog, FORM_CLASS):
             # Create cursor.
             cur = self.connection_wrapper_read.cursor()
             if cur is None:
-                print("Cursor creation has failed")
+                QgsMessageLog.logMessage(
+                    "Cursor creation has failed",
+                    "PG-History-Viewer",
+                    Qgis.MessageLevel.Warning,
+                )
                 return
 
             q = (

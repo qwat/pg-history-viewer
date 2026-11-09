@@ -17,7 +17,7 @@
 """
 
 import psycopg2
-from qgis.core import QgsDataSourceUri, QgsProject
+from qgis.core import Qgis, QgsDataSourceUri, QgsMessageLog, QgsProject
 
 from .credentials_dialog import CredentialsDialog
 
@@ -44,7 +44,11 @@ class ConnectionWrapper:
     def openConnection(self, db_connection):
         # Check for connection is already open.
         if self.isConnected() and self.db_source == db_connection:
-            print("Connection already open: reusing it.")
+            QgsMessageLog.logMessage(
+                "Connection already open: reusing it.",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
             return
 
         self.db_source = db_connection
@@ -118,14 +122,22 @@ class ConnectionWrapper:
             pass
 
         else:
-            print("Connection wrapper doesn't store any database connection!")
+            QgsMessageLog.logMessage(
+                "Connection wrapper doesn't store any database connection!",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
 
     # Create new cursor. For direct connection only.
     def cursor(self):
         if self.psycopg2Connection is not None:
             return self.psycopg2Connection.cursor()
 
-        print("Cannot create cursor without direct connection!")
+        QgsMessageLog.logMessage(
+            "Cannot create cursor without direct connection!",
+            "PG-History-Viewer",
+            Qgis.MessageLevel.Warning,
+        )
 
         return None
 
@@ -171,16 +183,18 @@ class ConnectionWrapper:
     # Create database connection from existing transactions group.
     def createConnectionFromTransactionsGroup(self, db_connection):
         # Check for QGis project permits to use transactions group.
-        try:
-            # Todo Deprecated, use transactionMode
-            activated = QgsProject.instance().autoTransaction()
-
-        except Exception:
-            print("QGis project doesn't provide QgsProject::autoTransaction() method.")
-            return None
+        # TODO check for BufferedGroups as well ?
+        activated = (
+            QgsProject.instance().transactionMode()
+            == Qgis.TransactionMode.AutomaticGroups
+        )
 
         if not activated:
-            print("This QGis project has disabled transactions group.")
+            QgsMessageLog.logMessage(
+                "This QGis project has disabled transactions group.",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
             return None
 
         # Get transactions group.
@@ -195,16 +209,19 @@ class ConnectionWrapper:
         uriStr = sourceUri.connectionInfo()
 
         try:
-            print(
-                "Getting transactions group for provider ",
-                providerKey,
-                " and database connection: ",
-                uriStr,
+            QgsMessageLog.logMessage(
+                f"Getting transactions group for provider {providerKey} and database connection: {uriStr}",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
             )
             return QgsProject.instance().transactionGroup(providerKey, uriStr)
 
         except Exception:
-            print("QgsProject::transactionGroup(): unavailable feature.")
+            QgsMessageLog.logMessage(
+                "QgsProject::transactionGroup(): unavailable feature.",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
             return None
 
     # Create database connection with psycopg2.
