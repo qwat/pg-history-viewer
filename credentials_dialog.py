@@ -16,15 +16,15 @@
  */
 """
 
-# -*- coding: utf-8 -*-
 import os
 
 from qgis.PyQt import uic
-from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtGui import *
+from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import QDialog
 
-FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), "credentials_dialog.ui"))
+FORM_CLASS, _ = uic.loadUiType(
+    os.path.join(os.path.dirname(__file__), "credentials_dialog.ui")
+)
 
 # Display a dialog for user credentials input.
 
@@ -76,7 +76,7 @@ class CredentialsDialog(QDialog, FORM_CLASS):
         self.userHasCancel = True
 
     def keyPressEvent(self, event):
-        if not event.key() == Qt.Key.Key_Escape:
+        if event.key() != Qt.Key.Key_Escape:
             super(QDialog, self).keyPressEvent(event)
 
         else:

@@ -16,7 +16,6 @@
  */
 """
 
-# -*- coding: utf-8 -*-
 import os
 
 from qgis.core import QgsDataSourceUri, QgsLayerTreeModel, QgsProject
@@ -32,12 +31,21 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), "config.u
 
 class ConfigDialog(QDialog, FORM_CLASS):
     def __init__(
-        self, parent, db_connection="", audit_table="", table_map={}, replay_function=None
+        self,
+        parent,
+        db_connection="",
+        audit_table="",
+        table_map=None,
+        replay_function=None,
     ):
         """Constructor.
         @param parent parent widget
         """
         super().__init__(parent)
+
+        if table_map is None:
+            table_map = {}
+
         self.setupUi(self)
 
         self.reloadBtn.setIcon(
@@ -65,7 +73,9 @@ class ConfigDialog(QDialog, FORM_CLASS):
             self.dbConnectionText.setText(db_connection)
             self.reloadBtn.click()
             if audit_table:
-                self.auditTableCombo.setCurrentIndex(self.auditTableCombo.findText(audit_table))
+                self.auditTableCombo.setCurrentIndex(
+                    self.auditTableCombo.findText(audit_table)
+                )
             if replay_function:
                 self.replayFunctionCombo.setCurrentIndex(
                     self.replayFunctionCombo.findText(replay_function)
@@ -96,7 +106,7 @@ class ConfigDialog(QDialog, FORM_CLASS):
         s.beginGroup("/PostgreSQL/connections")
         children = s.childGroups()
         connections = {}
-        map = {
+        database_parameters = {  # nosec
             "dbname": "database",
             "host": "host",
             "port": "port",
@@ -104,11 +114,11 @@ class ConfigDialog(QDialog, FORM_CLASS):
             "password": "password",
             "user": "username",
             "sslmode": "sslmode",
-        }  # pragma: allowlist secret
+        }
         for g in children:
             s.beginGroup(g)
             cstring = ""
-            for k, v in map.items():
+            for k, v in database_parameters.items():
                 # Strings attributes.
                 if s.value(v) and k != "sslmode":
                     cstring += k + "=" + s.value(v) + " "
@@ -142,12 +152,12 @@ class ConfigDialog(QDialog, FORM_CLASS):
 
         # Connect to database.
         self.connection_wrapper.openConnection(dbparams)
-        if self.connection_wrapper.isValid() == False:
+        if not self.connection_wrapper.isValid():
             return
 
         # Create cursor.
         cur = self.connection_wrapper.cursor()
-        if cur == None:
+        if cur is None:
             return
 
         # populate tables

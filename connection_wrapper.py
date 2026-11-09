@@ -17,8 +17,6 @@
 """
 
 import psycopg2
-
-# -*- coding: utf-8 -*-
 from qgis.core import QgsDataSourceUri, QgsProject
 
 from .credentials_dialog import CredentialsDialog
@@ -37,7 +35,6 @@ from .credentials_dialog import CredentialsDialog
 
 
 class ConnectionWrapper:
-
     # Disable transaction group.
     def disableTransactionGroup(self, disabled):
         self.qgisTransactionGroupDisabled = disabled
@@ -55,33 +52,33 @@ class ConnectionWrapper:
         self.closeConnection()
 
         # Try to retrieve transaction group if enabled.
-        if self.qgisTransactionGroupDisabled == False:
+        if not self.qgisTransactionGroupDisabled:
             tgConn = self.createConnectionFromTransactionsGroup(db_connection)
 
-            if tgConn != None:
+            if tgConn is not None:
                 self.storeQGisTransactionGroupConnection(tgConn)
                 return
 
         # Transaction group not available: try to create direct connection.
-        if self.psycopg2Connection == None:
+        if self.psycopg2Connection is None:
             dirConn = self.createSingleConnection(db_connection)
 
-            if dirConn != None:
+            if dirConn is not None:
                 self.storePsycopg2Connection(dirConn)
 
     # Check for a valid connection has been wrapped.
     def isValid(self):
-        if self.psycopg2Connection == None and self.qgisTransactionGroupConnection == None:
-            return False
-
-        return True
+        return not (
+            self.psycopg2Connection is None
+            and self.qgisTransactionGroupConnection is None
+        )
 
     # Execute Sql on database connection if available.
     # Prior to transaction group.
     def executeSql(self, sql):
 
         # Use QGis.QgsTransactionGroup connection.
-        if self.qgisTransactionGroupConnection != None:
+        if self.qgisTransactionGroupConnection is not None:
             error = self.qgisTransactionGroupConnection.executeSql(sql)
 
             # HACK: PostgreSql can return "Status 2 ()" when PGRES_TUPLES_OK is returned.
@@ -92,10 +89,10 @@ class ConnectionWrapper:
                 return error
 
         # Use psycopg2 connection.
-        elif self.psycopg2Connection != None:
+        elif self.psycopg2Connection is not None:
             cursor = self.psycopg2Connection.cursor()
 
-            if cursor == None:
+            if not cursor:
                 return "Invalid database connection: cannot get cursor."
 
             try:
@@ -112,11 +109,11 @@ class ConnectionWrapper:
     def commit(self):
 
         # Use psycopg2 connection.
-        if self.psycopg2Connection != None:
+        if self.psycopg2Connection is not None:
             self.psycopg2Connection.commit()
 
         # Use QGis.QgsTransactionGroup connection.
-        elif self.qgisTransactionGroupConnection != None:
+        elif self.qgisTransactionGroupConnection is not None:
             # No commit for transaction group.
             pass
 
@@ -125,7 +122,7 @@ class ConnectionWrapper:
 
     # Create new cursor. For direct connection only.
     def cursor(self):
-        if self.psycopg2Connection != None:
+        if self.psycopg2Connection is not None:
             return self.psycopg2Connection.cursor()
 
         print("Cannot create cursor without direct connection!")
@@ -135,23 +132,20 @@ class ConnectionWrapper:
     # Close connection.
     def closeConnection(self):
 
-        if self.psycopg2Connection != None:
+        if self.psycopg2Connection is not None:
             del self.psycopg2Connection
             self.psycopg2Connection = None
 
-        if self.qgisTransactionGroupConnection != None:
+        if self.qgisTransactionGroupConnection is not None:
             del self.qgisTransactionGroupConnection
             self.qgisTransactionGroupConnection = None
 
     # Check for open connection available.
     def isConnected(self):
-        if self.psycopg2Connection != None:
+        if self.psycopg2Connection is not None:
             return True
 
-        if self.qgisTransactionGroupConnection != None:
-            return True
-
-        return False
+        return self.qgisTransactionGroupConnection is not None
 
     #
     # Internal members.
@@ -177,12 +171,11 @@ class ConnectionWrapper:
     # Create database connection from existing transactions group.
     def createConnectionFromTransactionsGroup(self, db_connection):
         # Check for QGis project permits to use transactions group.
-        activated = False
-
         try:
+            # Todo Deprecated, use transactionMode
             activated = QgsProject.instance().autoTransaction()
 
-        except:
+        except Exception:
             print("QGis project doesn't provide QgsProject::autoTransaction() method.")
             return None
 
@@ -210,17 +203,13 @@ class ConnectionWrapper:
             )
             return QgsProject.instance().transactionGroup(providerKey, uriStr)
 
-        except:
+        except Exception:
             print("QgsProject::transactionGroup(): unavailable feature.")
             return None
-
-        return None
 
     # Create database connection with psycopg2.
     def createSingleConnection(self, db_connection):
         # Create new single connection.
-        conn = None
-
         try:
             conn = psycopg2.connect(db_connection)
 

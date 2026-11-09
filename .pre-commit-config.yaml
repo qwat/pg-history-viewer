@@ -29,19 +29,23 @@ repos:
       - id: isort
         args: ["--profile", "black"]
 
-  # Black formatting
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: "26.5.1"
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: "v0.17.0"
     hooks:
-      - id: black
-        args: ["--line-length=99"]
-
-  # tool to automatically upgrade syntax for newer versions of the language
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
-    hooks:
-      - id: pyupgrade
-        args: [--py310-plus]
+      - id: ruff-check
+        args:
+          - --fix-only
+          - --target-version=py310
+        types_or:
+          - python
+          - pyi
+      - id: ruff-format
+        args:
+          - --line-length=88
+          - --target-version=py310
+        types_or:
+          - python
+          - pyi
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.9.4

@@ -16,7 +16,6 @@
  */
 """
 
-# -*- coding: utf-8 -*-
 import os
 
 from psycopg2 import Error
@@ -34,7 +33,9 @@ PLUGIN_PATH = os.path.dirname(__file__)
 
 
 def database_connection_string():
-    db_connection, ok = QgsProject.instance().readEntry("HistoryViewer", "db_connection", "")
+    db_connection, _ok = QgsProject.instance().readEntry(
+        "HistoryViewer", "db_connection", ""
+    )
     return db_connection
 
 
@@ -43,16 +44,22 @@ def set_database_connection_string(db_connection):
 
 
 def project_audit_table():
-    audit_table, ok = QgsProject.instance().readEntry("HistoryViewer", "audit_table", "")
+    audit_table, _ok = QgsProject.instance().readEntry(
+        "HistoryViewer", "audit_table", ""
+    )
     return audit_table
 
 
 def set_project_replay_function(replay_function):
-    QgsProject.instance().writeEntry("HistoryViewer", "replay_function", replay_function)
+    QgsProject.instance().writeEntry(
+        "HistoryViewer", "replay_function", replay_function
+    )
 
 
 def project_replay_function():
-    replay_function, ok = QgsProject.instance().readEntry("HistoryViewer", "replay_function", "")
+    replay_function, _ok = QgsProject.instance().readEntry(
+        "HistoryViewer", "replay_function", ""
+    )
     return replay_function
 
 
@@ -62,7 +69,9 @@ def set_project_audit_table(audit_table):
 
 def project_table_map():
     # get table_map
-    table_map_strs, ok = QgsProject.instance().readListEntry("HistoryViewer", "table_map", [])
+    table_map_strs, _ok = QgsProject.instance().readListEntry(
+        "HistoryViewer", "table_map", []
+    )
     # list of "layer_id=table_name" strings
     table_map = dict([t.split("=") for t in table_map_strs])
     return table_map
@@ -136,8 +145,8 @@ class Plugin:
 
         # Database connection has failed.
         if (
-            self.connection_wrapper_read.isValid() == False
-            or self.connection_wrapper_write.isValid() == False
+            not self.connection_wrapper_read.isValid()
+            or not self.connection_wrapper_write.isValid()
         ):
             print("No database connection established.")
             return
@@ -185,7 +194,11 @@ class Plugin:
         audit_table = project_audit_table()
         replay_function = project_replay_function()
         self.config_dlg = ConfigDialog(
-            self.iface.mainWindow(), db_connection, audit_table, table_map, replay_function
+            self.iface.mainWindow(),
+            db_connection,
+            audit_table,
+            table_map,
+            replay_function,
         )
         r = self.config_dlg.exec()
 
