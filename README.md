@@ -1,7 +1,9 @@
 # pg-history-viewer
-QGIS plugin that helps to visualize contents of a PostgreSQL [audit trigger table](https://wiki.postgresql.org/wiki/Audit_trigger).
 
-This is inspired by [the Postgres 91 plus Auditor](https://github.com/3nids/postgres91plusauditor) QGIS plugin.
+[![QGIS.org](https://img.shields.io/badge/QGIS.org-published-green)](https://plugins.qgis.org/plugins/pg_history_viewer)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+
+QGIS plugin that helps to visualize contents of a PostgreSQL [audit trigger table](https://wiki.postgresql.org/wiki/Audit_trigger).
 
 The main features are:
 - visualization of contents of the audit table
@@ -15,26 +17,39 @@ The main features are:
 
 ![Screenshot](screenshot.png)
 
-# INSTALL
+## Install
 
-## audit trigger functions
+### Audit trigger functions
 
 Audit trigger functions are well described here [audit trigger table](https://wiki.postgresql.org/wiki/Audit_trigger).
-On the behalf of QWAT's group, new features were added to audit views and replay edits. They are available here:
-https://gitlab.com/Oslandia/audit_trigger. We had to fork unmaintained 2nd Quandrant's source repository https://github.com/2ndQuadrant/audit-trigger. If somehow this repository is revived, please tell us and we'll switch back to it. 
 
-To install the trigger functions, download the audit.sql file from there, and execute the sql commands in the script, either from pgadmin or PostgreSQL.
+On the behalf of QWAT's group, new features were added to audit views and replay edits. They are available [Oslandia GitLab repository](https://gitlab.com/Oslandia/audit_trigger).
 
-To start logging a table, here 'qwat_dr.annotationline':
+To install the trigger functions :
+* download the [`audit.sql`](https://gitlab.com/Oslandia/audit_trigger/-/blob/master/audit.sql?ref_type=heads) file
+* execute the SQL file, either from PgAdmin or PostgreSQL.
 
-`audit.audit_table('qwat_dr.annotationline');`
+To start logging a table, here `qwat_dr.annotationline`:
 
-or for a view; here 'qwat_od.vw_consumptionzone':
+```sql
+SELECT audit.audit_table('qwat_dr.annotationline');
+```
 
-`audit.audit_view('qwat_od.vw_consumptionzone', 'true'::boolean, '{}'::text[], '{id}'::text[]);`
+or for a view; here `qwat_od.vw_consumptionzone`:
 
+```sql
+SELECT audit.audit_view('qwat_od.vw_consumptionzone', 'true'::boolean, '{}'::text[], '{id}'::text[]);
+```
 
+### QGIS plugin
 
-## QGIS plugin
+QGIS plugin can be installed either from :
+* the [QGIS plugin installer](https://plugins.qgis.org/plugins/pg_history_viewer)
+* or by downloading this source code
 
-QGIS plugin can be installed from the QGIS plugin installer or by downloading this source code and unzipping it to your QGIS plugin profile or additional plugin paths. See https://docs.qgis.org/3.10/en/docs/user_manual/plugins/plugins.html
+and unzipping it to your QGIS plugin profile or additional plugin paths. See [the QGIS documentation](https://docs.qgis.org/latest/en/docs/user_manual/plugins/plugins.html).
+
+## Credits
+
+* This plugin is inspired by [the Postgres 91 plus Auditor](https://github.com/3nids/postgres91plusauditor) QGIS plugin from Denis.
+* This Oslandia audit version was based originally on [2nd Quandrant's source repository](https://github.com/2ndQuadrant/audit-trigger).

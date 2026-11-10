@@ -1,0 +1,6 @@
+[tool.ruff.lint]
+ignore = [
+    "BLE001", # Missing return type annotation for public function
+    "SIM103",
+    "N999",
+]

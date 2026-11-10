@@ -2,13 +2,12 @@
 name=History viewer for a PostgreSQL base with audit triggers
 description=This plugin allows to view audit logs and replay some past events
 version=2.3.0
-qgisMinimumVersion=3.4
+qgisMinimumVersion=3.34
 qgisMaximumVersion=4.99
-supportsQt6=True
 about=History viewer for a PostgreSQL base with audit triggers
 
-author=Hugo Mercier
-email=hugo.mercier@oslandia.com
+author=Oslandia, Arnaud Poncet-Montanges, Hugo Mercier
+email=qgis@oslandia.com
 
 experimental=False
 

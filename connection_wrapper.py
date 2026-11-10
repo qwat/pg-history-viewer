@@ -15,13 +15,11 @@
  *   License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 """
-# -*- coding: utf-8 -*-
-from qgis.core import QgsTransactionGroup, QgsProject, QgsDataSourceUri
-from psycopg2 import Error
+
+import psycopg2
+from qgis.core import Qgis, QgsDataSourceUri, QgsMessageLog, QgsProject
 
 from .credentials_dialog import CredentialsDialog
-import psycopg2
-import os
 
 # This object contains database connection wrapped for both
 # psycopg2 direct database connection OR QGis transaction group
@@ -36,8 +34,7 @@ import os
 # Direct connection allow the use of cursor() for cursor creation.
 
 
-class ConnectionWrapper():
-
+class ConnectionWrapper:
     # Disable transaction group.
     def disableTransactionGroup(self, disabled):
         self.qgisTransactionGroupDisabled = disabled
@@ -47,7 +44,11 @@ class ConnectionWrapper():
     def openConnection(self, db_connection):
         # Check for connection is already open.
         if self.isConnected() and self.db_source == db_connection:
-            print("Connection already open: reusing it.")
+            QgsMessageLog.logMessage(
+                "Connection already open: reusing it.",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
             return
 
         self.db_source = db_connection
@@ -55,33 +56,33 @@ class ConnectionWrapper():
         self.closeConnection()
 
         # Try to retrieve transaction group if enabled.
-        if self.qgisTransactionGroupDisabled == False:
+        if not self.qgisTransactionGroupDisabled:
             tgConn = self.createConnectionFromTransactionsGroup(db_connection)
 
-            if tgConn != None:
+            if tgConn is not None:
                 self.storeQGisTransactionGroupConnection(tgConn)
                 return
 
         # Transaction group not available: try to create direct connection.
-        if self.psycopg2Connection == None:
+        if self.psycopg2Connection is None:
             dirConn = self.createSingleConnection(db_connection)
 
-            if dirConn != None:
+            if dirConn is not None:
                 self.storePsycopg2Connection(dirConn)
 
     # Check for a valid connection has been wrapped.
     def isValid(self):
-        if self.psycopg2Connection == None and self.qgisTransactionGroupConnection == None:
-            return False
-
-        return True
+        return not (
+            self.psycopg2Connection is None
+            and self.qgisTransactionGroupConnection is None
+        )
 
     # Execute Sql on database connection if available.
     # Prior to transaction group.
     def executeSql(self, sql):
 
         # Use QGis.QgsTransactionGroup connection.
-        if self.qgisTransactionGroupConnection != None:
+        if self.qgisTransactionGroupConnection is not None:
             error = self.qgisTransactionGroupConnection.executeSql(sql)
 
             # HACK: PostgreSql can return "Status 2 ()" when PGRES_TUPLES_OK is returned.
@@ -92,10 +93,10 @@ class ConnectionWrapper():
                 return error
 
         # Use psycopg2 connection.
-        elif self.psycopg2Connection != None:
+        elif self.psycopg2Connection is not None:
             cursor = self.psycopg2Connection.cursor()
 
-            if cursor == None:
+            if not cursor:
                 return "Invalid database connection: cannot get cursor."
 
             try:
@@ -112,46 +113,51 @@ class ConnectionWrapper():
     def commit(self):
 
         # Use psycopg2 connection.
-        if self.psycopg2Connection != None:
+        if self.psycopg2Connection is not None:
             self.psycopg2Connection.commit()
 
         # Use QGis.QgsTransactionGroup connection.
-        elif self.qgisTransactionGroupConnection != None:
+        elif self.qgisTransactionGroupConnection is not None:
             # No commit for transaction group.
             pass
 
         else:
-            print("Connection wrapper doesn't store any database connection!")
+            QgsMessageLog.logMessage(
+                "Connection wrapper doesn't store any database connection!",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
 
     # Create new cursor. For direct connection only.
     def cursor(self):
-        if self.psycopg2Connection != None:
+        if self.psycopg2Connection is not None:
             return self.psycopg2Connection.cursor()
 
-        print("Cannot create cursor without direct connection!")
+        QgsMessageLog.logMessage(
+            "Cannot create cursor without direct connection!",
+            "PG-History-Viewer",
+            Qgis.MessageLevel.Warning,
+        )
 
         return None
 
     # Close connection.
     def closeConnection(self):
 
-        if self.psycopg2Connection != None:
+        if self.psycopg2Connection is not None:
             del self.psycopg2Connection
             self.psycopg2Connection = None
 
-        if self.qgisTransactionGroupConnection != None:
+        if self.qgisTransactionGroupConnection is not None:
             del self.qgisTransactionGroupConnection
             self.qgisTransactionGroupConnection = None
 
     # Check for open connection available.
     def isConnected(self):
-        if self.psycopg2Connection != None:
+        if self.psycopg2Connection is not None:
             return True
 
-        if self.qgisTransactionGroupConnection != None:
-            return True
-
-        return False
+        return self.qgisTransactionGroupConnection is not None
 
     #
     # Internal members.
@@ -177,17 +183,18 @@ class ConnectionWrapper():
     # Create database connection from existing transactions group.
     def createConnectionFromTransactionsGroup(self, db_connection):
         # Check for QGis project permits to use transactions group.
-        activated = False
-
-        try:
-            activated = QgsProject.instance().autoTransaction()
-
-        except:
-            print("QGis project doesn't provide QgsProject::autoTransaction() method.")
-            return None
+        # TODO check for BufferedGroups as well ?
+        activated = (
+            QgsProject.instance().transactionMode()
+            == Qgis.TransactionMode.AutomaticGroups
+        )
 
         if not activated:
-            print("This QGis project has disabled transactions group.")
+            QgsMessageLog.logMessage(
+                "This QGis project has disabled transactions group.",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
             return None
 
         # Get transactions group.
@@ -202,21 +209,24 @@ class ConnectionWrapper():
         uriStr = sourceUri.connectionInfo()
 
         try:
-            print("Getting transactions group for provider ",
-                  providerKey, " and database connection: ", uriStr)
+            QgsMessageLog.logMessage(
+                f"Getting transactions group for provider {providerKey} and database connection: {uriStr}",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
             return QgsProject.instance().transactionGroup(providerKey, uriStr)
 
-        except:
-            print("QgsProject::transactionGroup(): unavailable feature.")
+        except Exception:
+            QgsMessageLog.logMessage(
+                "QgsProject::transactionGroup(): unavailable feature.",
+                "PG-History-Viewer",
+                Qgis.MessageLevel.Warning,
+            )
             return None
-
-        return None
 
     # Create database connection with psycopg2.
     def createSingleConnection(self, db_connection):
         # Create new single connection.
-        conn = None
-
         try:
             conn = psycopg2.connect(db_connection)
 
@@ -236,8 +246,14 @@ class ConnectionWrapper():
 
             # User has validated: get credentials & create single connection again.
             else:
-                db_connection = db_connection + "user='" + self.credDlg.getUserText() + \
-                    "' password='" + self.credDlg.getPasswordText() + "'"
+                db_connection = (
+                    db_connection
+                    + "user='"
+                    + self.credDlg.getUserText()
+                    + "' password='"
+                    + self.credDlg.getPasswordText()
+                    + "'"
+                )
 
                 return self.createSingleConnection(db_connection)
 

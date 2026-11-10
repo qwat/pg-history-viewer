@@ -15,33 +15,42 @@
  *   License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 """
-# -*- coding: utf-8 -*-
+
 import os
 
+from qgis.core import QgsDataSourceUri, QgsLayerTreeModel, QgsProject
 from qgis.PyQt import uic
-from qgis.PyQt.QtCore import QSettings, QPoint
+from qgis.PyQt.QtCore import QPoint, QSettings
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QDialog, QMessageBox, QMenu
-
-from qgis.core import QgsProject, QgsLayerTreeModel, QgsDataSourceUri
-from qgis.gui import QgsLayerTreeView
+from qgis.PyQt.QtWidgets import QDialog, QMenu
 
 from .connection_wrapper import ConnectionWrapper
 
-FORM_CLASS, _ = uic.loadUiType(os.path.join(
-    os.path.dirname(__file__), 'config.ui'))
+FORM_CLASS, _ = uic.loadUiType(os.path.join(os.path.dirname(__file__), "config.ui"))
 
 
 class ConfigDialog(QDialog, FORM_CLASS):
-    def __init__(self, parent, db_connection="", audit_table="", table_map={}, replay_function=None):
+    def __init__(
+        self,
+        parent,
+        db_connection="",
+        audit_table="",
+        table_map=None,
+        replay_function=None,
+    ):
         """Constructor.
         @param parent parent widget
         """
-        super(ConfigDialog, self).__init__(parent)
+        super().__init__(parent)
+
+        if table_map is None:
+            table_map = {}
+
         self.setupUi(self)
 
         self.reloadBtn.setIcon(
-            QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'repeat.svg')))
+            QIcon(os.path.join(os.path.dirname(__file__), "icons", "repeat.svg"))
+        )
 
         self._table_map = table_map
 
@@ -65,10 +74,12 @@ class ConfigDialog(QDialog, FORM_CLASS):
             self.reloadBtn.click()
             if audit_table:
                 self.auditTableCombo.setCurrentIndex(
-                    self.auditTableCombo.findText(audit_table))
+                    self.auditTableCombo.findText(audit_table)
+                )
             if replay_function:
                 self.replayFunctionCombo.setCurrentIndex(
-                    self.replayFunctionCombo.findText(replay_function))
+                    self.replayFunctionCombo.findText(replay_function)
+                )
                 self.replayFunctionChk.setChecked(True)
 
         self.tables = None
@@ -92,16 +103,22 @@ class ConfigDialog(QDialog, FORM_CLASS):
 
     def onBrowseConnection(self):
         s = QSettings()
-        base = "/PostgreSQL/connections"
         s.beginGroup("/PostgreSQL/connections")
         children = s.childGroups()
         connections = {}
-        map = {"dbname": "database", "host": "host", "port": "port", "service": "service",
-               "password": "password", "user": "username", "sslmode": "sslmode"} # pragma: allowlist secret
+        database_parameters = {  # nosec
+            "dbname": "database",
+            "host": "host",
+            "port": "port",
+            "service": "service",
+            "password": "password",
+            "user": "username",
+            "sslmode": "sslmode",
+        }
         for g in children:
             s.beginGroup(g)
             cstring = ""
-            for k, v in map.items():
+            for k, v in database_parameters.items():
                 # Strings attributes.
                 if s.value(v) and k != "sslmode":
                     cstring += k + "=" + s.value(v) + " "
@@ -135,17 +152,19 @@ class ConfigDialog(QDialog, FORM_CLASS):
 
         # Connect to database.
         self.connection_wrapper.openConnection(dbparams)
-        if self.connection_wrapper.isValid() == False:
+        if not self.connection_wrapper.isValid():
             return
 
         # Create cursor.
         cur = self.connection_wrapper.cursor()
-        if cur == None:
+        if cur is None:
             return
 
         # populate tables
-        q = "SELECT table_schema ,table_name FROM information_schema.tables" \
+        q = (
+            "SELECT table_schema ,table_name FROM information_schema.tables"
             " where table_schema not in ('pg_catalog', 'information_schema') order by table_schema, table_name"
+        )
 
         cur.execute(q)
 
@@ -158,10 +177,12 @@ class ConfigDialog(QDialog, FORM_CLASS):
             self.tableCombo.addItem(t)
 
         # populate functions
-        q = "select routine_schema, routine_name from information_schema.routines where " \
-            "routine_schema not in ('pg_catalog', 'information_schema') " \
-            "and data_type = 'void' " \
+        q = (
+            "select routine_schema, routine_name from information_schema.routines where "
+            "routine_schema not in ('pg_catalog', 'information_schema') "
+            "and data_type = 'void' "
             "and substr(routine_name, 1, 1) != '_'"
+        )
 
         cur.execute(q)
 
